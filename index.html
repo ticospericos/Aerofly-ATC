@@ -1,0 +1,185 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SN45 ATC</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#09111c;color:#e8f0f8;font-family:Arial,sans-serif;padding:20px}
+header{display:flex;justify-content:space-between;align-items:center}
+h1{color:#69d6a0;letter-spacing:2px}
+.panel{background:#142235;border:1px solid #29415c;border-radius:14px;padding:17px;margin:15px 0}
+.muted{color:#94a8bd;font-size:13px}
+.frequency{font-size:30px;color:#69d6a0;font-weight:bold}
+button{background:#1b9369;color:white;border:0;border-radius:10px;padding:14px;margin:5px 3px;font-size:15px;font-weight:bold}
+button.secondary{background:#29415c}
+button:disabled{opacity:.5}
+#log{height:260px;overflow-y:auto}
+.msg{padding:12px;margin:8px 0;border-radius:9px;background:#20344a}
+.pilot{border-left:3px solid #64a8ff}
+.atc{border-left:3px solid #69d6a0}
+input{width:100%;padding:14px;border-radius:9px;border:1px solid #40566e;background:#0b1725;color:white;font-size:16px}
+</style>
+</head>
+<body>
+<header>
+ <div><h1>SN45 ATC</h1><div class="muted">VIRTUAL AIR TRAFFIC CONTROL</div></div>
+ <div style="color:#69d6a0">● ONLINE</div>
+</header>
+
+<div class="panel">
+ <div class="muted">AIRCRAFT</div>
+ <h2>Learjet 45</h2>
+ <div class="muted">CALLSIGN</div>
+ <h3>SIERRA NOVEMBER FOUR FIVE</h3>
+ <div class="muted">CURRENT FREQUENCY</div>
+ <div class="frequency" id="freq">121.700</div>
+</div>
+
+<div class="panel">
+ <div class="muted">ATC RADIO COMMUNICATIONS</div>
+ <div id="log">
+  <div class="msg atc"><b>SN45 ATC:</b><br>
+  Sierra November Four Five, welcome. Salinas Ground is standing by. How may I assist you?</div>
+ </div>
+ <button onclick="listen()" id="mic">🎙 PUSH TO TALK</button>
+ <button class="secondary" onclick="stopListening()">STOP</button>
+ <p class="muted" id="status">Radio ready. Press and speak in English.</p>
+ <input id="typed" placeholder="Or type your transmission here...">
+ <button onclick="sendTyped()">TRANSMIT</button>
+</div>
+
+<div class="panel">
+ <div class="muted">QUICK FREQUENCY SELECT</div>
+ <button class="secondary" onclick="setFreq('121.700')">GROUND</button>
+ <button class="secondary" onclick="setFreq('119.400')">TOWER</button>
+ <button class="secondary" onclick="setFreq('127.150')">DEPARTURE</button>
+ <button class="secondary" onclick="setFreq('120.550')">ATIS</button>
+</div>
+
+<div class="panel">
+ <div class="muted">SIMULATION CONTROLS</div>
+ <button class="secondary" onclick="speak('Sierra November Four Five, say your intentions.')">CALL ATC</button>
+ <button class="secondary" onclick="clearLog()">CLEAR RADIO LOG</button>
+</div>
+
+<script>
+let recognition;
+let listening=false;
+let currentFreq="121.700";
+
+function setFreq(f){
+ currentFreq=f;
+ document.getElementById("freq").textContent=f;
+ speak("Frequency changed to "+f);
+}
+
+function addMessage(text,type){
+ const log=document.getElementById("log");
+ const div=document.createElement("div");
+ div.className="msg "+type;
+ const label=type==="pilot"?"PILOT":"ATC";
+ div.innerHTML="<b>"+label+":</b><br>";
+ div.appendChild(document.createTextNode(text));
+ log.appendChild(div);
+ log.scrollTop=log.scrollHeight;
+}
+
+function speak(text){
+ addMessage(text,"atc");
+ if("speechSynthesis" in window){
+  speechSynthesis.cancel();
+  const utterance=new SpeechSynthesisUtterance(text);
+  utterance.lang="en-US";
+  utterance.rate=.92;
+  speechSynthesis.speak(utterance);
+ }
+}
+
+function respond(text){
+ const t=text.toLowerCase();
+ addMessage(text,"pilot");
+ if(t.includes("clearance")||t.includes("ifr")){
+  setFreq("121.700");
+  speak("Sierra November Four Five, cleared to San Francisco International via the River departure, then as filed. Maintain three thousand. Expect flight level one eight zero ten minutes after departure. Squawk four two three one. Read back.");
+ }else if(t.includes("taxi")){
+  speak("Sierra November Four Five, taxi via Alpha, hold short of runway two six. Contact tower when holding short.");
+ }else if(t.includes("holding short")){
+  setFreq("119.400");
+  speak("Sierra November Four Five, line up and wait runway two six.");
+ }else if(t.includes("line up")||t.includes("waiting")){
+  speak("Sierra November Four Five, hold position. Stand by for takeoff clearance.");
+ }else if(t.includes("takeoff")||t.includes("cleared for takeoff")){
+  speak("Sierra November Four Five, cleared for takeoff runway two six. Fly runway heading, maintain three thousand. Contact departure one two seven point one five.");
+ }else if(t.includes("airborne")){
+  setFreq("127.150");
+  speak("Sierra November Four Five, radar contact. Climb and maintain five thousand.");
+ }else if(t.includes("five thousand")||t.includes("5000")){
+  speak("Sierra November Four Five, roger. Continue climb. Report established on course.");
+ }else if(t.includes("in sight")){
+  speak("Sierra November Four Five, roger. Report the runway in sight.");
+ }else if(t.includes("runway")&&t.includes("land")){
+  speak("Sierra November Four Five, cleared to land. Report when on the runway.");
+ }else if(t.includes("runway")&&t.includes("short final")){
+  speak("Sierra November Four Five, wind two five zero at seven knots, runway zero two, cleared to land.");
+ }else if(t.includes("ground")||t.includes("vacated")){
+  setFreq("121.900");
+  speak("Sierra November Four Five, taxi to the ramp via Alpha. Monitor ground.");
+ }else if(t.includes("roger")||t.includes("wilco")){
+  speak("Sierra November Four Five, roger. Continue as instructed.");
+ }else{
+  speak("Sierra November Four Five, say again slowly. Your transmission was not understood.");
+ }
+}
+
+function listen(){
+ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!SR){
+  document.getElementById("status").textContent=
+   "Speech recognition unavailable in this browser. Use the text box for now.";
+  return;
+ }
+ if(listening)return;
+ recognition=new SR();
+ recognition.lang="en-US";
+ recognition.continuous=false;
+ recognition.interimResults=false;
+ recognition.onstart=()=>{
+  listening=true;
+  document.getElementById("status").textContent="Listening...";
+ };
+ recognition.onresult=(e)=>{
+  const text=e.results[0][0].transcript;
+  respond(text);
+ };
+ recognition.onerror=(e)=>{
+  document.getElementById("status").textContent="Microphone: "+e.error;
+ };
+ recognition.onend=()=>{
+  listening=false;
+  document.getElementById("status").textContent="Radio ready.";
+ };
+ recognition.start();
+}
+
+function stopListening(){
+ if(recognition)recognition.stop();
+ listening=false;
+ document.getElementById("status").textContent="Radio stopped.";
+}
+
+function sendTyped(){
+ const box=document.getElementById("typed");
+ if(!box.value.trim())return;
+ respond(box.value.trim());
+ box.value="";
+}
+
+function clearLog(){
+ document.getElementById("log").innerHTML="";
+}
+</script>
+</body>
+</html>
