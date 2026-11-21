@@ -1,124 +1,933 @@
-<!doctype html>
+
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07111f">
 <title>AEROFLY-ATC</title>
+
 <style>
-:root{--bg:#07111f;--panel:#101d2e;--panel2:#15253a;--line:#263b54;--txt:#eaf2fb;--muted:#91a6bd;--green:#55d69e;--amber:#f2c46d;--red:#ff7777;--blue:#73b8ff}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% 0,#152c46 0,#07111f 48%);color:var(--txt);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-header{padding:20px 16px 14px;border-bottom:1px solid var(--line);background:#07111feF;position:sticky;top:0;z-index:5;backdrop-filter:blur(12px)}
-.brand{display:flex;justify-content:space-between;align-items:center;gap:10px}.brand h1{font-size:21px;letter-spacing:2px;margin:0}.brand small{color:var(--muted);letter-spacing:1px}.pill{border:1px solid #2e624f;color:var(--green);border-radius:30px;padding:5px 9px;font-size:11px}
-main{max-width:980px;margin:auto;padding:15px;display:grid;gap:13px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.card{background:linear-gradient(145deg,var(--panel),#0c1827);border:1px solid var(--line);border-radius:15px;padding:14px;min-width:0}.wide{grid-column:1/-1}.eyebrow{font-size:10px;letter-spacing:1.5px;color:var(--muted);font-weight:700}.section-title{font-size:16px;margin:3px 0 12px}.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.between{display:flex;justify-content:space-between;align-items:center;gap:8px}.muted{color:var(--muted)}label{display:block;color:var(--muted);font-size:12px;margin:9px 0 5px}input,select,textarea{width:100%;background:#081524;color:var(--txt);border:1px solid #30465f;border-radius:9px;padding:11px;font:inherit;outline:none}textarea{min-height:76px;resize:vertical}button{border:1px solid #395573;border-radius:10px;padding:11px 13px;background:#1a3049;color:var(--txt);font-weight:650;font-size:13px;cursor:pointer}button.primary{background:#176847;border-color:#24875f}button.warn{background:#5c2028;border-color:#8b3a43}button:disabled{opacity:.45}.tabs{display:flex;gap:7px;overflow:auto;padding-bottom:3px}.tabs button{white-space:nowrap}.tabs button.active{border-color:var(--green);color:var(--green);background:#12372f}.status{font-size:12px;color:var(--amber)}.radio{background:#061321;border:1px solid #29435e;border-radius:12px;padding:13px;min-height:94px}.radio .speaker{color:var(--green);font-size:10px;font-weight:800;letter-spacing:1.3px}.radio p{margin:7px 0 0;font-size:16px}.hint{background:#102b29;border:1px solid #28634f;border-radius:12px;padding:13px}.hint strong{color:var(--green);font-size:11px;letter-spacing:1px}.hint p{margin:6px 0}.log{display:grid;gap:8px;max-height:260px;overflow:auto}.entry{border-left:3px solid var(--blue);background:#0a1726;padding:9px 11px;border-radius:0 8px 8px 0;font-size:13px}.entry.you{border-color:var(--amber)}.entry .tag{font-size:10px;color:var(--muted);font-weight:800;letter-spacing:1px}.diagrambox{background:#f1f3f5;color:#14202c;border-radius:10px;padding:16px;text-align:center;min-height:145px;display:grid;place-items:center}.runway{height:20px;width:82%;background:#6c7784;border:2px dashed white;margin:7px auto;transform:rotate(-8deg);border-radius:2px}.notice{font-size:12px;color:var(--muted);line-height:1.5}.footer{text-align:center;color:#6f849b;font-size:11px;padding:4px 10px 22px}
-@media(min-width:720px){main{grid-template-columns:1.15fr .85fr}.full{grid-column:1/-1}.grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+:root {
+  --bg:#07111f;
+  --panel:#101d2e;
+  --panel2:#15253a;
+  --line:#263b54;
+  --txt:#eaf2fb;
+  --muted:#91a6bd;
+  --green:#55d69e;
+  --amber:#f2c46d;
+  --red:#ff7777;
+  --blue:#73b8ff;
+}
+* { box-sizing:border-box; }
+body {
+  margin:0;
+  background:radial-gradient(circle at 20% 0,#152c46 0,#07111f 48%);
+  color:var(--txt);
+  font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+header {
+  padding:18px 16px;
+  border-bottom:1px solid var(--line);
+  background:#07111f;
+  position:sticky;
+  top:0;
+  z-index:5;
+}
+.brand {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+}
+.brand h1 {
+  font-size:21px;
+  letter-spacing:2px;
+  margin:0;
+}
+.brand small {
+  color:var(--muted);
+  letter-spacing:1px;
+  font-size:10px;
+}
+.pill {
+  border:1px solid #2e624f;
+  color:var(--green);
+  border-radius:30px;
+  padding:5px 9px;
+  font-size:11px;
+  white-space:nowrap;
+}
+main {
+  max-width:1000px;
+  margin:auto;
+  padding:14px;
+  display:grid;
+  gap:13px;
+}
+.card {
+  background:linear-gradient(145deg,var(--panel),#0c1827);
+  border:1px solid var(--line);
+  border-radius:15px;
+  padding:14px;
+  min-width:0;
+}
+.full { grid-column:1/-1; }
+.grid {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+.eyebrow {
+  font-size:10px;
+  letter-spacing:1.5px;
+  color:var(--muted);
+  font-weight:700;
+}
+.section-title {
+  font-size:16px;
+  margin:4px 0 12px;
+}
+.row {
+  display:flex;
+  gap:9px;
+  align-items:center;
+  flex-wrap:wrap;
+}
+.between {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:8px;
+}
+.muted,.notice { color:var(--muted); }
+.notice {
+  font-size:12px;
+  line-height:1.5;
+}
+label {
+  display:block;
+  color:var(--muted);
+  font-size:12px;
+  margin:10px 0 5px;
+}
+input,select,textarea {
+  width:100%;
+  background:#081524;
+  color:var(--txt);
+  border:1px solid #30465f;
+  border-radius:9px;
+  padding:11px;
+  font:inherit;
+}
+textarea {
+  min-height:85px;
+  resize:vertical;
+}
+button {
+  border:1px solid #395573;
+  border-radius:10px;
+  padding:11px 13px;
+  background:#1a3049;
+  color:var(--txt);
+  font-weight:650;
+  font-size:13px;
+  cursor:pointer;
+}
+button.primary {
+  background:#176847;
+  border-color:#24875f;
+}
+button.warn {
+  background:#5c2028;
+  border-color:#8b3a43;
+}
+button:disabled { opacity:.45; }
+.tabs {
+  display:flex;
+  gap:7px;
+  overflow-x:auto;
+  padding-bottom:4px;
+}
+.tabs button { white-space:nowrap; }
+.tabs button.active {
+  border-color:var(--green);
+  color:var(--green);
+  background:#12372f;
+}
+.status {
+  font-size:11px;
+  color:var(--amber);
+}
+.radio {
+  background:#061321;
+  border:1px solid #29435e;
+  border-radius:12px;
+  padding:13px;
+  min-height:110px;
+}
+.speaker {
+  color:var(--green);
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:1.3px;
+}
+.radio p {
+  margin:8px 0;
+  font-size:16px;
+}
+.hint {
+  background:#102b29;
+  border:1px solid #28634f;
+  border-radius:12px;
+  padding:13px;
+}
+.hint strong {
+  color:var(--green);
+  font-size:11px;
+  letter-spacing:1px;
+}
+.hint p { margin:7px 0; }
+.log {
+  display:grid;
+  gap:8px;
+  max-height:300px;
+  overflow:auto;
+}
+.entry {
+  border-left:3px solid var(--blue);
+  background:#0a1726;
+  padding:9px 11px;
+  border-radius:0 8px 8px 0;
+  font-size:13px;
+  overflow-wrap:anywhere;
+}
+.entry.you { border-color:var(--amber); }
+.entry.emergency { border-color:var(--red); }
+.entry .tag {
+  font-size:10px;
+  color:var(--muted);
+  font-weight:800;
+  letter-spacing:1px;
+  margin-bottom:3px;
+}
+.diagram {
+  background:#e9edf1;
+  color:#14202c;
+  border-radius:10px;
+  padding:16px;
+  text-align:center;
+  min-height:150px;
+  display:grid;
+  place-items:center;
+}
+.runway {
+  height:22px;
+  width:82%;
+  background:#6c7784;
+  border:2px dashed white;
+  margin:12px auto;
+  transform:rotate(-8deg);
+}
+.footer {
+  text-align:center;
+  color:#6f849b;
+  font-size:11px;
+  padding:8px 10px 24px;
+}
+@media(min-width:720px) {
+  main { grid-template-columns:1.15fr .85fr; }
+  .grid { grid-template-columns:repeat(4,minmax(0,1fr)); }
+}
 </style>
 </head>
+
 <body>
-<header><div class="brand"><div><h1>SN45 <span style="color:var(--green)">ATC</span></h1><small>AEROFLY FS COMPANION Â· SIMULATION ONLY</small></div><span class="pill">BUILD 0.2 Â· LOCAL DEMO</span></div></header>
+
+<header>
+  <div class="brand">
+    <div>
+      <h1>AEROFLY-ATC</h1>
+      <small>FLIGHT COMPANION · SIMULATION ONLY</small>
+    </div>
+    <span class="pill">BUILD 0.3</span>
+  </div>
+</header>
+
 <main>
-<section class="card full">
- <div class="between"><div><div class="eyebrow">FLIGHT SETUP</div><h2 class="section-title">Aircraft & route</h2></div><span class="status" id="phaseStatus">PREFLIGHT</span></div>
- <div class="grid">
-  <div><label for="callsign">Callsign (spoken)</label><input id="callsign" value="November Nine Bravo Charlie"></div>
-  <div><label for="aircraft">Aircraft</label><select id="aircraft"><option>Learjet 45</option><option>Cessna 172</option><option>King Air</option><option>Airbus A320</option><option>Boeing 737</option></select></div>
-  <div><label for="origin">Origin</label><select id="origin"></select></div>
-  <div><label for="destination">Destination</label><select id="destination"></select></div>
- </div>
- <div class="row" style="margin-top:12px"><button class="primary" id="startFlight">Start / reset flight</button><button id="swap">Swap airports</button><span class="muted" id="flightStatus">No active session</span></div>
-</section>
-
-<section class="card">
- <div class="eyebrow">ATC STATION</div><h2 class="section-title">Select controller</h2>
- <div class="tabs" id="stations">
-  <button class="active" data-station="Clearance">Clearance</button><button data-station="Ground">Ground</button><button data-station="Tower">Tower</button><button data-station="Departure">Departure</button><button data-station="Center">Center</button><button data-station="Approach">Approach</button><button data-station="ATIS">ATIS</button>
- </div>
- <label for="frequency">Frequency (manual simulator setting)</label><input id="frequency" value="122.800 MHz" inputmode="decimal">
- <p class="notice">Frequencies shown here are editable simulation notes, not verified live frequencies. Set the radio manually in Aerofly.</p>
-</section>
-
-<section class="card">
- <div class="eyebrow">AIRPORT DIAGRAM</div><h2 class="section-title" id="diagramTitle">Origin airport</h2>
- <div class="diagrambox"><div><strong id="diagramName">Salinas Municipal Â· KSNS</strong><div class="runway"></div><small>DIAGRAM PREVIEW NOT TO SCALE</small></div></div>
- <div class="row" style="margin-top:10px"><button id="faaDiagram">Find official FAA diagram â</button><button id="arrivalDiagram">Show destination</button></div>
- <p class="notice">This preview is only a placeholder. Use the official airport diagram for actual taxiway geometry; no taxi route or hold-short point is invented here.</p>
-</section>
-
-<section class="card wide">
- <div class="between"><div><div class="eyebrow">LIVE RADIO Â· TWO-WAY</div><h2 class="section-title">Communications</h2></div><span id="micStatus" class="status">MIC NOT STARTED</span></div>
- <div class="radio"><div class="speaker">ATC Â· <span id="stationLabel">CLEARANCE</span></div><p id="atcText">SN45 ATC online. Select your airport, controller, then make your first call.</p><div class="row" style="margin-top:9px"><button id="speakAtc">â¶ Play ATC voice</button></div></div>
- <label for="transcript">Your transmission Â· recognized or typed</label><textarea id="transcript" placeholder="Speak using the microphone, or type your radio call here..."></textarea>
- <div class="row"><button class="primary" id="micButton">ð Start microphone</button><button id="send">Transmit</button><button id="clear">Clear</button></div>
- <div class="hint" style="margin-top:12px"><strong>TRANSMISSION HINT Â· WHAT YOU CAN SAY</strong><p id="hintText">â[Airport] Ground, November Nine Bravo Charlie, request taxi for departure to [destination].â</p><div class="notice" id="hintExplain">Read back the complete clearance or instruction. This is a learning aid, not an operational clearance.</div></div>
-</section>
-
-<section class="card">
- <div class="eyebrow">EMERGENCY COMMUNICATIONS</div><h2 class="section-title">Declare an emergency</h2>
- <label for="emergencyType">Situation</label><select id="emergencyType"><option value="engine">Engine failure</option><option value="smoke">Smoke / fire onboard</option><option value="medical">Medical emergency</option><option value="pressurization">Cabin pressurization problem</option><option value="communications">Radio communication failure</option><option value="other">Other / urgent situation</option></select>
- <button class="warn" id="declare" style="width:100%;margin-top:10px">MAYDAY / PAN-PAN CALL</button>
- <p class="notice">For flight-simulation roleplay only. The app does not diagnose aircraft faults or provide real emergency procedures.</p>
-</section>
-
-<section class="card">
- <div class="eyebrow">RADIO LOG</div><h2 class="section-title">Transcript history</h2><div class="log" id="log"><div class="entry"><div class="tag">SYSTEM</div>Session ready. Radio log will appear here.</div></div>
-</section>
 
 <section class="card full">
- <div class="eyebrow">SESSION NOTES</div><h2 class="section-title">Flight phase</h2>
- <div class="tabs" id="phases"><button class="active" data-phase="Preflight">Preflight</button><button data-phase="Taxi">Taxi</button><button data-phase="Takeoff">Takeoff</button><button data-phase="Departure">Departure</button><button data-phase="Cruise">Cruise</button><button data-phase="Approach">Approach</button><button data-phase="Landing">Landing</button><button data-phase="Emergency">Emergency</button></div>
- <p class="notice">SN45 ATC is an independent companion. It does not connect to Aerofly telemetry, control the simulator, or know your exact aircraft position. Update the phase and airport manually.</p>
+  <div class="between">
+    <div>
+      <div class="eyebrow">FLIGHT SETUP</div>
+      <h2 class="section-title">Aircraft & Route</h2>
+    </div>
+    <span class="status" id="phaseStatus">PREFLIGHT</span>
+  </div>
+
+  <div class="grid">
+    <div>
+      <label for="callsign">Callsign</label>
+      <input id="callsign" value="November Nine Bravo Charlie">
+    </div>
+    <div>
+      <label for="aircraft">Aircraft</label>
+      <select id="aircraft">
+        <option>Learjet 45</option>
+        <option>Cessna 172</option>
+        <option>King Air</option>
+        <option>Airbus A320</option>
+        <option>Boeing 737</option>
+      </select>
+    </div>
+    <div>
+      <label for="origin">Departure airport</label>
+      <select id="origin"></select>
+    </div>
+    <div>
+      <label for="destination">Destination airport</label>
+      <select id="destination"></select>
+    </div>
+    <div>
+      <label for="flightType">Flight rules</label>
+      <select id="flightType">
+        <option>IFR</option>
+        <option>VFR</option>
+      </select>
+    </div>
+    <div>
+      <label for="altitude">Requested altitude</label>
+      <input id="altitude" value="FL350">
+    </div>
+  </div>
+
+  <div class="row" style="margin-top:12px">
+    <button class="primary" id="startFlight">Start / Reset Flight</button>
+    <button id="swap">Swap Airports</button>
+    <span class="muted" id="flightStatus">No active flight</span>
+  </div>
 </section>
-<div class="footer">SN45 ATC Â· Unofficial Aerofly FS companion Â· Not for real-world aviation use</div>
+
+<section class="card">
+  <div class="eyebrow">ATC STATION</div>
+  <h2 class="section-title">Select Controller</h2>
+
+  <div class="tabs" id="stations">
+    <button class="active" data-station="Clearance">Clearance</button>
+    <button data-station="Ground">Ground</button>
+    <button data-station="Tower">Tower</button>
+    <button data-station="Departure">Departure</button>
+    <button data-station="Center">Center</button>
+    <button data-station="Approach">Approach</button>
+    <button data-station="ATIS">ATIS</button>
+    <button data-station="Unicom">Unicom</button>
+  </div>
+
+  <label for="frequency">Radio frequency</label>
+  <input id="frequency" value="122.800" inputmode="decimal">
+
+  <p class="notice">
+    Simulation frequency only. Verify the correct frequency separately.
+    Change the radio manually inside Aerofly.
+  </p>
+</section>
+
+<section class="card">
+  <div class="eyebrow">AIRPORT DIAGRAM</div>
+  <h2 class="section-title" id="diagramTitle">Departure Airport</h2>
+
+  <div class="diagram">
+    <div>
+      <strong id="diagramName">Salinas Municipal · KSNS</strong>
+      <div class="runway"></div>
+      <small>ILLUSTRATIVE PLACEHOLDER · NOT TO SCALE</small>
+    </div>
+  </div>
+
+  <div class="row" style="margin-top:10px">
+    <button id="faaDiagram">FAA Airport Diagrams</button>
+    <button id="arrivalDiagram">Show Destination</button>
+  </div>
+
+  <p class="notice">
+    This is not an actual airport chart. Do not use it for real taxi navigation.
+    Use official airport diagrams for accurate taxiways and runway information.
+  </p>
+</section>
+
+<section class="card full">
+  <div class="between">
+    <div>
+      <div class="eyebrow">LIVE RADIO · TWO WAY</div>
+      <h2 class="section-title">Communications</h2>
+    </div>
+    <span id="micStatus" class="status">MIC NOT STARTED</span>
+  </div>
+
+  <div class="radio">
+    <div class="speaker">
+      ATC · <span id="stationLabel">CLEARANCE</span>
+    </div>
+    <p id="atcText">
+      AEROFLY-ATC online. Select your airports and controller to begin.
+    </p>
+    <button id="speakAtc">▶ Play ATC Voice</button>
+  </div>
+
+  <label for="transcript">Your radio transmission</label>
+  <textarea id="transcript" placeholder="Speak using the microphone or type your radio call here..."></textarea>
+
+  <div class="row">
+    <button class="primary" id="micButton">🎙 Start Microphone</button>
+    <button id="send">Transmit</button>
+    <button id="clear">Clear</button>
+  </div>
+
+  <div class="hint" style="margin-top:12px">
+    <strong>TRANSMISSION HINT · WHAT YOU SHOULD SAY</strong>
+    <p id="hintText">
+      November Nine Bravo Charlie, request clearance.
+    </p>
+    <div class="notice" id="hintExplain">
+      Read back instructions carefully. Replace the example fields with your flight information.
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <div class="eyebrow">EMERGENCY COMMUNICATIONS</div>
+  <h2 class="section-title">Declare an Emergency</h2>
+
+  <label for="emergencyType">Emergency situation</label>
+  <select id="emergencyType">
+    <option value="engine">Engine failure</option>
+    <option value="smoke">Smoke / Fire onboard</option>
+    <option value="medical">Medical emergency</option>
+    <option value="pressurization">Cabin pressurization problem</option>
+    <option value="communications">Radio communication failure</option>
+    <option value="other">Other emergency</option>
+  </select>
+
+  <button class="warn" id="declare" style="width:100%;margin-top:10px">
+    MAYDAY / PAN-PAN
+  </button>
+
+  <p class="notice">
+    Flight simulation only. This panel does not provide real emergency procedures.
+  </p>
+</section>
+
+<section class="card">
+  <div class="eyebrow">RADIO LOG</div>
+  <h2 class="section-title">Transmission History</h2>
+  <div class="log" id="log">
+    <div class="entry">
+      <div class="tag">SYSTEM</div>
+      AEROFLY-ATC session ready.
+    </div>
+  </div>
+</section>
+
+<section class="card full">
+  <div class="eyebrow">FLIGHT PHASE</div>
+  <h2 class="section-title">Update Flight Phase</h2>
+
+  <div class="tabs" id="phases">
+    <button class="active" data-phase="Preflight">Preflight</button>
+    <button data-phase="Taxi">Taxi</button>
+    <button data-phase="Takeoff">Takeoff</button>
+    <button data-phase="Departure">Departure</button>
+    <button data-phase="Cruise">Cruise</button>
+    <button data-phase="Approach">Approach</button>
+    <button data-phase="Landing">Landing</button>
+    <button data-phase="Emergency">Emergency</button>
+  </div>
+
+  <p class="notice">
+    Update your phase manually. This application does not receive Aerofly telemetry
+    or know your exact aircraft position.
+  </p>
+</section>
+
+<section class="card full">
+  <div class="eyebrow">AIRPORT DIRECTORY</div>
+  <h2 class="section-title">California Airport Directory</h2>
+
+  <label for="airportSearch">Search airport or ICAO code</label>
+  <input id="airportSearch" placeholder="Example: KSFO or San Francisco">
+
+  <div id="airportDirectory" class="log" style="margin-top:12px"></div>
+
+  <p class="notice">
+    This is your selected airport directory, not a verified list of every airport
+    available in Aerofly FS Global.
+  </p>
+</section>
+
+<div class="footer">
+  AEROFLY-ATC · Independent flight simulation companion · Not for real-world aviation
+</div>
+
 </main>
+
 <script>
-const airports=[
-["Sonoma County","KSTS"],["Sacramento International","KSMF"],["Sacramento Mather","KMHR"],["Sacramento Executive","KSAC"],["Travis AFB","KSUU"],["Buchanan Field","KCCR"],["Stockton Metropolitan","KSCK"],["Modesto City-County","KMOD"],["San Francisco International","KSFO"],["Oakland International","KOAK"],["Napa County","KAPC"],["Petaluma Municipal","O69"],["Nut Tree","KVCB"],["Gnoss Field / Novato","KDVO"],["Rio Vista Municipal","O88"],["Lodi","1O3"],["Hayward Executive","KHWD"],["Livermore Municipal","KLVK"],["Tracy Municipal","KTCY"],["Half Moon Bay","KHAF"],["San Carlos","KSQL"],["Palo Alto","KPAO"],["Moffett Federal","KNUQ"],["San JosÃ© Mineta","KSJC"],["Reid-Hillview","KRHV"],["San Martin","E16"],["Watsonville Municipal","KWVI"],["Hollister Municipal","KCVH"],["Salinas Municipal","KSNS"],["Monterey Regional","KMRY"]
+"use strict";
+
+const airports = [
+["Sonoma County","KSTS"],
+["Sacramento International","KSMF"],
+["Sacramento Mather","KMHR"],
+["Sacramento Executive","KSAC"],
+["Travis AFB","KSUU"],
+["Buchanan Field","KCCR"],
+["Stockton Metropolitan","KSCK"],
+["Modesto City-County","KMOD"],
+["San Francisco International","KSFO"],
+["Oakland International","KOAK"],
+["Napa County","KAPC"],
+["Petaluma Municipal","O69"],
+["Nut Tree","KVCB"],
+["Gnoss Field / Novato","KDVO"],
+["Rio Vista Municipal","O88"],
+["Lodi","1O3"],
+["Hayward Executive","KHWD"],
+["Livermore Municipal","KLVK"],
+["Tracy Municipal","KTCY"],
+["Half Moon Bay","KHAF"],
+["San Carlos","KSQL"],
+["Palo Alto","KPAO"],
+["Moffett Federal","KNUQ"],
+["San José Mineta","KSJC"],
+["Reid-Hillview","KRHV"],
+["San Martin","E16"],
+["Watsonville Municipal","KWVI"],
+["Hollister Municipal","KCVH"],
+["Salinas Municipal","KSNS"],
+["Monterey Regional","KMRY"]
 ];
-const $=id=>document.getElementById(id);
-const origin=$("origin"),destination=$("destination");
-airports.forEach((a,i)=>{let o=new Option(`${a[0]} (${a[1]})`,a[1]);origin.add(o);let d=new Option(`${a[0]} (${a[1]})`,a[1]);destination.add(d)});
-origin.value="KSNS";destination.value="KSFO";
-let station="Clearance",phase="Preflight",diagramIsDestination=false,recognition=null,recognizing=false;
-function airport(code){return airports.find(a=>a[1]===code)||[code,code]}
-function hint(){
- const o=airport(origin.value),d=airport(destination.value),c=$("callsign").value.trim()||"November Nine Bravo Charlie";
- const h={
- Clearance:`â${o[1]} Clearance, ${c}, Learjet 45, IFR to ${d[0]}, request clearance.â`,
- Ground:`â${o[0]} Ground, ${c}, at [ramp/parking position], request taxi for departure to ${d[0]}.â`,
- Tower:`â${o[0]} Tower, ${c}, holding short Runway [assigned runway], ready for departure.â`,
- Departure:`â${o[0]} Departure, ${c}, leaving [altitude], climbing to [assigned altitude].â`,
- Center:`âCenter, ${c}, maintaining [altitude].â`,
- Approach:`â${o[0]} Approach, ${c}, [position/altitude], inbound for landing.â`,
- ATIS:`Tune the published ATIS/AWOS source in the simulator if available. Record the information code and include it in your first call.`
- };
- $("hintText").textContent=h[station];
- $("hintExplain").textContent=station==="ATIS"?"ATIS is an information broadcast, not a controller clearance.": "Replace bracketed fields with information from your simulator and read back runway, altitude, heading and hold-short instructions exactly.";
+
+const $ = id => document.getElementById(id);
+
+const origin = $("origin");
+const destination = $("destination");
+
+airports.forEach(a => {
+  origin.add(new Option(`${a[0]} (${a[1]})`,a[1]));
+  destination.add(new Option(`${a[0]} (${a[1]})`,a[1]));
+});
+
+origin.value = "KSNS";
+destination.value = "KSFO";
+
+let station = "Clearance";
+let phase = "Preflight";
+let diagramIsDestination = false;
+let recognition = null;
+let recognizing = false;
+
+function airport(code) {
+  return airports.find(a => a[1] === code) || [code,code];
 }
-function log(tag,text,kind=""){const e=document.createElement("div");e.className="entry "+kind;const t=document.createElement("div");t.className="tag";t.textContent=tag;const p=document.createElement("div");p.textContent=text;e.append(t,p);$("log").prepend(e)}
-function setAtc(text){$("atcText").textContent=text; speak(text);log("ATC Â· "+station,text)}
-function speak(text){if(!("speechSynthesis"in window))return;window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang="en-US";u.rate=.92;window.speechSynthesis.speak(u)}
-$("speakAtc").onclick=()=>speak($("atcText").textContent);
-$("stations").onclick=e=>{const b=e.target.closest("button[data-station]");if(!b)return;station=b.dataset.station;document.querySelectorAll("#stations button").forEach(x=>x.classList.toggle("active",x===b));$("stationLabel").textContent=station.toUpperCase();hint();setAtc(`${station} selected. ${airport(origin.value)[0]} (${origin.value}). Make your call when ready. This is a simulation.`)};
-$("phases").onclick=e=>{const b=e.target.closest("button[data-phase]");if(!b)return;phase=b.dataset.phase;document.querySelectorAll("#phases button").forEach(x=>x.classList.toggle("active",x===b));$("phaseStatus").textContent=phase.toUpperCase();log("PHASE",phase)};
-$("startFlight").onclick=()=>{diagramIsDestination=false;updateDiagram();$("flightStatus").textContent="Session active Â· "+origin.value+" â "+destination.value;log("FLIGHT",`New simulated flight ${origin.value} to ${destination.value}`);setAtc(`SN45 ATC ready. ${airport(origin.value)[0]} to ${airport(destination.value)[0]}. Select Clearance or Ground to begin. Simulation only.`);hint()};
-$("swap").onclick=()=>{let v=origin.value;origin.value=destination.value;destination.value=v;updateDiagram();hint()};
-function updateDiagram(){let a=airport(diagramIsDestination?destination.value:origin.value);$("diagramTitle").textContent=diagramIsDestination?"Destination airport":"Origin airport";$("diagramName").textContent=a[0]+" Â· "+a[1]}
-origin.onchange=()=>{if(!diagramIsDestination)updateDiagram();hint()};destination.onchange=()=>{if(diagramIsDestination)updateDiagram();hint()};
-$("arrivalDiagram").onclick=()=>{diagramIsDestination=!diagramIsDestination;updateDiagram()};
-$("faaDiagram").onclick=()=>{let code=(diagramIsDestination?destination.value:origin.value);window.open("https://www.faa.gov/airports/runway_safety/diagrams/","_blank","noopener")};
-$("send").onclick=()=>{let text=$("transcript").value.trim();if(!text)return;log("PILOT Â· "+$("callsign").value,text,"you");let lower=text.toLowerCase();if(/mayday|pan-pan|engine failure|engine shut|engine flame|fire|smoke|emergency/.test(lower)){setAtc("November Nine Bravo Charlie, Mayday acknowledged. Say nature of emergency, souls on board, fuel remaining, and your intentions. This is a simulated response; use your simulator scenario.");}
-else if(station==="ATIS"){setAtc("Information received. Contact the appropriate simulated controller when ready. ATIS does not issue clearances.");}
-else{setAtc(`${$("callsign").value}, message received. Please confirm your position and request. This prototype does not issue runway, taxi, altitude or heading clearances.`);}
-$("transcript").value=""};
-$("clear").onclick=()=>{$("transcript").value=""};
-$("declare").onclick=()=>{let c=$("callsign").value.trim()||"November Nine Bravo Charlie";let type=$("emergencyType").value;let calls={engine:"Mayday, Mayday, Mayday. [Controller], "+c+", Learjet 45, engine failure. Request priority handling and vectors to a suitable airport.",smoke:"Mayday, Mayday, Mayday. [Controller], "+c+", smoke reported onboard. Request priority handling.",medical:"Pan-Pan, Pan-Pan, Pan-Pan. [Controller], "+c+", medical emergency onboard. Request priority handling.",pressurization:"Mayday, Mayday, Mayday. [Controller], "+c+", cabin pressurization problem. Request priority handling.",communications:"[If able, use the appropriate published lost-communications procedure in the simulator scenario. This panel cannot provide a real-world procedure.]",other:"Mayday, Mayday, Mayday. [Controller], "+c+", emergency situation. Request priority handling."};phase="Emergency";$("phaseStatus").textContent="EMERGENCY";document.querySelectorAll("#phases button").forEach(x=>x.classList.toggle("active",x.dataset.phase==="Emergency"));$("transcript").value=calls[type];hint();log("EMERGENCY HINT",calls[type],"you")};
-const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-$("micButton").onclick=()=>{
- if(!SR){$("micStatus").textContent="VOICE RECOGNITION UNAVAILABLE";log("MIC","Speech recognition is not available in this browser. You can type transmissions; ATC voice playback remains available.");return}
- if(recognizing){recognition.stop();return}
- try{recognition=new SR();recognition.lang="en-US";recognition.continuous=false;recognition.interimResults=true;recognition.onstart=()=>{recognizing=true;$("micStatus").textContent="LISTENINGâ¦";$("micButton").textContent="â  Stop microphone"};recognition.onresult=e=>{let t="";for(let i=e.resultIndex;i<e.results.length;i++)t+=e.results[i][0].transcript;$("transcript").value=t};recognition.onerror=e=>{$("micStatus").textContent="MIC ERROR: "+e.error;log("MIC ERROR",e.error+" â check Safari microphone permission, then retry.")};recognition.onend=()=>{recognizing=false;$("micButton").textContent="ð Start microphone";if($("micStatus").textContent==="LISTENINGâ¦")$("micStatus").textContent="MIC READY"};recognition.start()}catch(err){$("micStatus").textContent="MIC COULD NOT START";log("MIC ERROR",String(err))}
+
+function log(tag,text,kind="") {
+  const entry = document.createElement("div");
+  entry.className = "entry " + kind;
+
+  const title = document.createElement("div");
+  title.className = "tag";
+  title.textContent = tag;
+
+  const message = document.createElement("div");
+  message.textContent = text;
+
+  entry.append(title,message);
+  $("log").prepend(entry);
+}
+
+function speak(text) {
+  if (!("speechSynthesis" in window)) {
+    log("VOICE","Speech playback is not supported by this browser.");
+    return;
+  }
+
+  window.speechSynthesis.cancel();
+
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = "en-US";
+  utterance.rate = 0.92;
+
+  window.speechSynthesis.speak(utterance);
+}
+
+function setAtc(text) {
+  $("atcText").textContent = text;
+  speak(text);
+  log("ATC · " + station,text);
+}
+
+function hint() {
+  const o = airport(origin.value);
+  const d = airport(destination.value);
+  const c = $("callsign").value.trim() || "November Nine Bravo Charlie";
+  const altitude = $("altitude").value.trim() || "assigned altitude";
+
+  const hints = {
+    Clearance:
+      `${o[1]} Clearance, ${c}, Learjet 45, ${$("flightType").value} to ${d[0]}, request clearance.`,
+
+    Ground:
+      `${o[0]} Ground, ${c}, at [parking position], request taxi for departure to ${d[0]}.`,
+
+    Tower:
+      `${o[0]} Tower, ${c}, holding short Runway [assigned runway], ready for departure.`,
+
+    Departure:
+      `${o[0]} Departure, ${c}, passing [altitude], climbing to ${altitude}.`,
+
+    Center:
+      `Center, ${c}, maintaining ${altitude}.`,
+
+    Approach:
+      `${d[0]} Approach, ${c}, [position and altitude], inbound for landing.`,
+
+    ATIS:
+      `Listen to the airport information broadcast. Note the information code and report it when contacting the controller.`,
+
+    Unicom:
+      `${o[0]} traffic, ${c}, [position and intentions].`
+  };
+
+  $("hintText").textContent = hints[station] || hints.Clearance;
+
+  $("hintExplain").textContent =
+    station === "ATIS"
+    ? "ATIS is an information broadcast, not an air traffic control clearance."
+    : "Replace bracketed fields with information from your simulator. Read back runway, altitude, heading and hold-short instructions exactly.";
+}
+
+function updateDiagram() {
+  const a = airport(
+    diagramIsDestination ? destination.value : origin.value
+  );
+
+  $("diagramTitle").textContent =
+    diagramIsDestination ? "Destination Airport" : "Departure Airport";
+
+  $("diagramName").textContent = a[0] + " · " + a[1];
+}
+
+function updateDirectory() {
+  const search = $("airportSearch").value.toLowerCase().trim();
+  const directory = $("airportDirectory");
+
+  directory.innerHTML = "";
+
+  const filtered = airports.filter(a =>
+    a[0].toLowerCase().includes(search) ||
+    a[1].toLowerCase().includes(search)
+  );
+
+  filtered.forEach(a => {
+    const item = document.createElement("div");
+    item.className = "entry";
+
+    const name = document.createElement("strong");
+    name.textContent = a[0] + " · " + a[1];
+
+    const actions = document.createElement("div");
+    actions.className = "row";
+    actions.style.marginTop = "7px";
+
+    const dep = document.createElement("button");
+    dep.textContent = "Set Departure";
+    dep.onclick = () => {
+      origin.value = a[1];
+      diagramIsDestination = false;
+      updateDiagram();
+      hint();
+      log("AIRPORT","Departure airport set to " + a[0] + " (" + a[1] + ").");
+    };
+
+    const arr = document.createElement("button");
+    arr.textContent = "Set Destination";
+    arr.onclick = () => {
+      destination.value = a[1];
+      diagramIsDestination = true;
+      updateDiagram();
+      hint();
+      log("AIRPORT","Destination airport set to " + a[0] + " (" + a[1] + ").");
+    };
+
+    actions.append(dep,arr);
+    item.append(name,actions);
+    directory.append(item);
+  });
+
+  if (!filtered.length) {
+    directory.textContent = "No matching airport found.";
+  }
+}
+
+$("stations").addEventListener("click",e => {
+  const button = e.target.closest("button[data-station]");
+  if (!button) return;
+
+  station = button.dataset.station;
+
+  document.querySelectorAll("#stations button").forEach(b => {
+    b.classList.toggle("active",b === button);
+  });
+
+  $("stationLabel").textContent = station.toUpperCase();
+
+  hint();
+
+  setAtc(
+    `${station} selected. ${airport(origin.value)[0]} (${origin.value}). Make your call when ready. Simulation only.`
+  );
+});
+
+$("phases").addEventListener("click",e => {
+  const button = e.target.closest("button[data-phase]");
+  if (!button) return;
+
+  phase = button.dataset.phase;
+
+  document.querySelectorAll("#phases button").forEach(b => {
+    b.classList.toggle("active",b === button);
+  });
+
+  $("phaseStatus").textContent = phase.toUpperCase();
+
+  log("FLIGHT PHASE",phase);
+});
+
+$("startFlight").onclick = () => {
+  diagramIsDestination = false;
+  updateDiagram();
+
+  $("flightStatus").textContent =
+    "Active · " + origin.value + " → " + destination.value;
+
+  log(
+    "FLIGHT",
+    "New simulated flight: " + origin.value + " to " + destination.value
+  );
+
+  setAtc(
+    `AEROFLY-ATC ready. ${airport(origin.value)[0]} to ${airport(destination.value)[0]}. Select Clearance or Ground to begin. Simulation only.`
+  );
+
+  hint();
 };
-hint();updateDiagram();
+
+$("swap").onclick = () => {
+  const oldOrigin = origin.value;
+  origin.value = destination.value;
+  destination.value = oldOrigin;
+
+  diagramIsDestination = false;
+  updateDiagram();
+  hint();
+};
+
+origin.onchange = () => {
+  if (!diagramIsDestination) updateDiagram();
+  hint();
+};
+
+destination.onchange = () => {
+  if (diagramIsDestination) updateDiagram();
+  hint();
+};
+
+$("arrivalDiagram").onclick = () => {
+  diagramIsDestination = !diagramIsDestination;
+  updateDiagram();
+};
+
+$("faaDiagram").onclick = () => {
+  window.open(
+    "https://www.faa.gov/airports/runway_safety/diagrams/",
+    "_blank"
+  );
+};
+
+$("callsign").oninput = hint;
+$("altitude").oninput = hint;
+$("flightType").onchange = hint;
+
+$("speakAtc").onclick = () => {
+  speak($("atcText").textContent);
+};
+
+$("send").onclick = () => {
+  const text = $("transcript").value.trim();
+  if (!text) return;
+
+  const callsign = $("callsign").value.trim() || "November Nine Bravo Charlie";
+
+  log("PILOT · " + callsign,text,"you");
+
+  const lower = text.toLowerCase();
+
+  if (/mayday|pan-pan|engine failure|engine shut|fire|smoke|emergency/.test(lower)) {
+    setAtc(
+      `${callsign}, emergency acknowledged. Say nature of emergency, persons on board, fuel remaining and your intentions. Simulated response only.`
+    );
+  } else if (station === "ATIS") {
+    setAtc(
+      "Information received. Contact the appropriate simulated controller when ready. ATIS does not issue clearances."
+    );
+  } else if (station === "Clearance") {
+    setAtc(
+      `${callsign}, roger. Confirm your requested route, flight rules and requested altitude. This is a training simulation, not an actual clearance.`
+    );
+  } else if (station === "Ground") {
+    setAtc(
+      `${callsign}, roger. State your parking position and confirm you have the assigned taxi route. This simulation does not issue real taxi clearances.`
+    );
+  } else if (station === "Tower") {
+    setAtc(
+      `${callsign}, roger. Confirm runway and that you are holding short. Wait for an actual simulated takeoff clearance in your scenario.`
+    );
+  } else if (station === "Departure") {
+    setAtc(
+      `${callsign}, roger. Say your current altitude and assigned altitude.`
+    );
+  } else if (station === "Center") {
+    setAtc(
+      `${callsign}, roger. Confirm your altitude and next requested flight level.`
+    );
+  } else if (station === "Approach") {
+    setAtc(
+      `${callsign}, roger. Report your position, altitude and landing intentions.`
+    );
+  } else {
+    setAtc(
+      `${callsign}, traffic copied. Continue to monitor the appropriate frequency.`
+    );
+  }
+
+  $("transcript").value = "";
+};
+
+$("clear").onclick = () => {
+  $("transcript").value = "";
+};
+
+$("declare").onclick = () => {
+  const c = $("callsign").value.trim() || "November Nine Bravo Charlie";
+  const type = $("emergencyType").value;
+
+  const calls = {
+    engine:
+      `Mayday, Mayday, Mayday. [Controller], ${c}, Learjet 45, engine failure. Request priority handling and assistance.`,
+
+    smoke:
+      `Mayday, Mayday, Mayday. [Controller], ${c}, Learjet 45, smoke reported onboard. Request priority handling.`,
+
+    medical:
+      `Pan-Pan, Pan-Pan, Pan-Pan. [Controller], ${c}, medical emergency onboard. Request priority handling.`,
+
+    pressurization:
+      `Mayday, Mayday, Mayday. [Controller], ${c}, cabin pressurization problem. Request priority handling.`,
+
+    communications:
+      `Radio communication failure. Use only the appropriate procedure for your flight simulation scenario.`,
+
+    other:
+      `Mayday, Mayday, Mayday. [Controller], ${c}, emergency situation. Request priority handling.`
+  };
+
+  phase = "Emergency";
+  $("phaseStatus").textContent = "EMERGENCY";
+
+  document.querySelectorAll("#phases button").forEach(b => {
+    b.classList.toggle("active",b.dataset.phase === "Emergency");
+  });
+
+  $("transcript").value = calls[type];
+
+  $("hintText").textContent = calls[type];
+  $("hintExplain").textContent =
+    "This is a suggested simulation radio call. Adapt it to your scenario.";
+
+  log("EMERGENCY HINT",calls[type],"you emergency");
+};
+
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+$("micButton").onclick = () => {
+  if (!SR) {
+    $("micStatus").textContent = "VOICE RECOGNITION UNAVAILABLE";
+    log(
+      "MICROPHONE",
+      "Speech recognition is not available in this browser. You can type your transmissions. ATC voice playback may still work."
+    );
+    return;
+  }
+
+  if (recognizing && recognition) {
+    recognition.stop();
+    return;
+  }
+
+  try {
+    recognition = new SR();
+    recognition.lang = "en-US";
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    recognition.onstart = () => {
+      recognizing = true;
+      $("micStatus").textContent = "LISTENING...";
+      $("micButton").textContent = "■ Stop Microphone";
+    };
+
+    recognition.onresult = event => {
+      let result = "";
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        result += event.results[i][0].transcript;
+      }
+
+      $("transcript").value = result;
+    };
+
+    recognition.onerror = event => {
+      $("micStatus").textContent = "MIC ERROR: " + event.error;
+
+      log(
+        "MIC ERROR",
+        event.error + ". Check browser microphone permission and try again."
+      );
+    };
+
+    recognition.onend = () => {
+      recognizing = false;
+      $("micButton").textContent = "🎙 Start Microphone";
+
+      if ($("micStatus").textContent === "LISTENING...") {
+        $("micStatus").textContent = "MIC READY";
+      }
+    };
+
+    recognition.start();
+
+  } catch (error) {
+    $("micStatus").textContent = "MIC COULD NOT START";
+    log("MIC ERROR",String(error));
+  }
+};
+
+$("airportSearch").addEventListener("input",updateDirectory);
+
+hint();
+updateDiagram();
+updateDirectory();
+
 </script>
 </body>
 </html>
