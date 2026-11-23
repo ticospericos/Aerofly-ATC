@@ -873,9 +873,12 @@ let micSessionId = 0;
 
 function normalizeAviationSpeech(value) {
   const digits = {zero:"0",oh:"0",one:"1",two:"2",three:"3",four:"4",five:"5",six:"6",seven:"7",eight:"8",nine:"9"};
+  const thousands = {"four thousand":"4000","five thousand":"5000","six thousand":"6000","seven thousand":"7000","eight thousand":"8000","nine thousand":"9000","ten thousand":"10000","eleven thousand":"11000","twelve thousand":"12000"};
   return String(value || "")
     .replace(/\b(runway)\s+(zero|oh|one|two|three|four|five|six|seven|eight|nine)\s+(zero|oh|one|two|three|four|five|six|seven|eight|nine)\s+(left|right|center)\b/gi, (_,r,a,b,side) => r+" "+digits[a.toLowerCase()]+digits[b.toLowerCase()]+({left:"L",right:"R",center:"C"}[side.toLowerCase()]))
-    .replace(/\b(runway)\s+(zero|oh|one|two|three|four|five|six|seven|eight|nine)\s+(left|right|center)\b/gi, (_,r,n,side) => r+" "+digits[n.toLowerCase()]+({left:"L",right:"R",center:"C"}[side.toLowerCase()]))
+    .replace(/\b(runway)\s+(zero|oh|one|two|three|four|five|six|seven|eight|nine)\s+(zero|oh|one|two|three|four|five|six|seven|eight|nine)\b/gi, (_,r,a,b) => r+" "+digits[a.toLowerCase()]+digits[b.toLowerCase()])
+    .replace(/\b(four thousand|five thousand|six thousand|seven thousand|eight thousand|nine thousand|ten thousand|eleven thousand|twelve thousand)\b/gi, phrase => thousands[phrase.toLowerCase()]+" feet")
+    .replace(/\b(heading|squawk)\s+(zero|oh|one|two|three|four|five|six|seven|eight|nine)\s+(zero|oh|one|two|three|four|five|six|seven|eight|nine)\s+(zero|oh|one|two|three|four|five|six|seven|eight|nine)\s+(zero|oh|one|two|three|four|five|six|seven|eight|nine)\b/gi, (_,label,a,b,d,e) => label+" "+digits[a.toLowerCase()]+digits[b.toLowerCase()]+digits[d.toLowerCase()]+digits[e.toLowerCase()])
     .replace(/\s+/g," ").trim();
 }
 function recognitionStatus(message) { $("micStatus").textContent = message; }
