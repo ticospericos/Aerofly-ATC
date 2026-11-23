@@ -267,7 +267,7 @@ button:disabled { opacity:.45; }
       <h1>AEROFLY-ATC</h1>
       <small>PILOT · CONTROLLER · RADIO COMPANION</small>
     </div>
-    <span class="pill">BUILD 0.5</span>
+    <span class="pill">BUILD 0.6</span>
   </div>
 </header>
 
@@ -470,6 +470,10 @@ const TTS_API = "https://aerofly-atc-brain.fy5794mdw9.workers.dev/tts";
 let conversationHistory = [];
 let flightState = {};
 let currentFrequency = "";
+const SESSION_KEY = "aerofly-atc-session-v2";
+let activeSession = false;
+let flightId = "";
+let sessionLog = [];
 
 function airport(code) {
   return airports.find(a => a[1] === code) || [code,code,[]];
@@ -483,16 +487,69 @@ function updateRunwayOptions() {
 function log(tag,text,kind="") {
   const entry = document.createElement("div");
   entry.className = "entry " + kind;
-
   const title = document.createElement("div");
   title.className = "tag";
   title.textContent = tag;
-
   const message = document.createElement("div");
   message.textContent = text;
-
   entry.append(title,message);
   $("log").prepend(entry);
+  if(activeSession){
+    sessionLog.unshift({tag:String(tag),text:String(text),kind:String(kind||"")});
+    sessionLog=sessionLog.slice(0,80);
+    saveSession();
+  }
+}
+
+function saveSession() {
+  if(!activeSession || !flightId) return;
+  try {
+    localStorage.setItem(SESSION_KEY,JSON.stringify({
+      version:2,active:true,flightId,savedAt:new Date().toISOString(),
+      callsign:$("callsign").value,aircraft:$("aircraft").value,
+      origin:origin.value,destination:destination.value,flightRules:$("flightType").value,
+      station,phase,currentFrequency,flightState,conversationHistory:conversationHistory.slice(-8),
+      sessionLog:sessionLog.slice(0,80),atcText:$("atcText").textContent,
+      hintText:$("hintText").textContent,hintExplain:$("hintExplain").textContent
+    }));
+  } catch(error) {
+    $("flightStatus").textContent="Active · session storage unavailable";
+  }
+}
+
+function restoreSession() {
+  try {
+    const saved=JSON.parse(localStorage.getItem(SESSION_KEY)||"null");
+    if(!saved || saved.version!==2 || !saved.active || !saved.flightId) return false;
+    if(airports.some(a=>a[1]===saved.origin)) origin.value=saved.origin;
+    if(airports.some(a=>a[1]===saved.destination)) destination.value=saved.destination;
+    if(Array.from($("aircraft").options).some(o=>o.value===saved.aircraft || o.text===saved.aircraft)) $("aircraft").value=saved.aircraft;
+    if(["IFR","VFR"].includes(saved.flightRules)) $("flightType").value=saved.flightRules;
+    if(saved.callsign) $("callsign").value=saved.callsign;
+    flightId=saved.flightId;activeSession=true;
+    station=saved.station||"Clearance";phase=saved.phase||"Preflight";
+    currentFrequency=saved.currentFrequency||"";
+    flightState=saved.flightState&&typeof saved.flightState==="object"?saved.flightState:{};
+    conversationHistory=Array.isArray(saved.conversationHistory)?saved.conversationHistory.slice(-8):[];
+    sessionLog=Array.isArray(saved.sessionLog)?saved.sessionLog.slice(0,80):[];
+    $("log").innerHTML="";
+    sessionLog.forEach(item=>{
+      const entry=document.createElement("div");entry.className="entry "+(item.kind||"");
+      const title=document.createElement("div");title.className="tag";title.textContent=item.tag||"LOG";
+      const message=document.createElement("div");message.textContent=item.text||"";
+      entry.append(title,message);$("log").append(entry);
+    });
+    $("stationLabel").textContent=station==="Clearance"?"CLEARANCE":station.toUpperCase();
+    $("phaseStatus").textContent=phase.toUpperCase();
+    $("phaseName").textContent=phase.toUpperCase();
+    $("phaseDescription").textContent="Restored from saved flight session";
+    $("flightStatus").textContent="Recovered · "+origin.value+" → "+destination.value;
+    $("atcText").textContent=saved.atcText||"Flight session recovered. Continue with your last assigned controller.";
+    $("hintText").textContent=saved.hintText||"Resume your last assigned clearance.";
+    $("hintExplain").textContent=saved.hintExplain||"Saved flight state restored on this device.";
+    updateRunwayOptions();
+    return true;
+  } catch(error) { return false; }
 }
 
 // Select one natural-sounding English voice automatically. Prefer a higher-quality
@@ -703,6 +760,9 @@ $("startFlight").onclick = () => {
   conversationHistory = [];
   flightState = {};
   currentFrequency = "";
+  sessionLog = [];
+  flightId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : "flight-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+  activeSession = true;
   station = "Clearance";
   phase = "Preflight";
   $("stationLabel").textContent = "CLEARANCE";
@@ -761,6 +821,7 @@ $("send").onclick = async () => {
     origin: { name: from[0], icao: from[1], runways: from[2] },
     destination: { name: to[0], icao: to[1], runways: to[2] },
     flightRules: $("flightType").value,
+    flightId,
     station,
     phase,
     frequency: currentFrequency,
@@ -812,6 +873,7 @@ $("send").onclick = async () => {
     setAtc(data.atc);
     $("transcript").value = "";
     $("micStatus").textContent = "ATC · CORE ONLINE";
+    saveSession();
   } catch (error) {
     const messageText = error.name === "AbortError" ? "ATC response timed out. Please transmit again." : error.message;
     log("CONNECTION ERROR", messageText);
@@ -995,6 +1057,7 @@ updateRunwayOptions();
 $("stationLabel").textContent = "CLEARANCE DELIVERY";
 hint();
 updateDirectory();
+if(restoreSession()) log("SYSTEM","Previous flight session recovered. ATC memory, clearance state and radio history restored.");
 
 </script>
 </body>
