@@ -136,7 +136,17 @@ function core(message,c,history){
   }
  } else if(station==="Ground"){
   frequency="121.900";
-  if(s.stage==="Parked"||/\b(parked|at parking|at the gate|shut down|shutdown)\b/i.test(msg)){
+  if(/\b(request pushback|pushback and start|request start|engine start|start-up|startup)\b/i.test(msg)&&s.stage!=="Taxi"&&s.stage!=="HoldingShort"){
+   phase="Ground Operations";s.stage="Pushback";
+   atc=cs+", pushback and engine start approved. Start at your discretion and advise when pushback is complete. Use the pushback guidance in your simulator.";
+   hint=cs+", pushback and engine start approved, will advise when pushback is complete, "+cs+".";
+   explanation="Autorización de pushback y arranque simulada. Sigue las indicaciones visuales de Aerofly; no se genera una ruta física.";
+  } else if(s.stage==="Pushback"&&/\b(pushback complete|pushback completed|ready to taxi|ready for taxi)\b/i.test(msg)){
+   phase="Taxi";s.stage="Taxi";
+   atc=cs+", roger, pushback complete. Taxi to runway "+dr+" and hold short. Follow the taxiway markings shown in your simulator. Contact Tower on 118.300 when holding short.";
+   hint=cs+", taxi to runway "+dr+", hold short, "+cs+".";
+   explanation="Pushback completado. Sigue únicamente las calles y señales visibles en Aerofly.";
+  } else if(s.stage==="Parked"||/\b(parked|at parking|at the gate|shut down|shutdown)\b/i.test(msg)){
    phase="Parked";s.stage="Parked";
    atc=cs+", parking acknowledged. Frequency change approved. Good day.";
    hint=cs+", parking completed, frequency change approved.";
