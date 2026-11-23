@@ -226,7 +226,7 @@ function core(message,c,history){
   explanation="Confirma el ascenso y contacta Center cuando estés establecido en ruta.";
  } else if(station==="Center"){
   frequency="127.000";
-  var directMatch=msg.match(/\b(?:request direct|direct to|proceed direct)\s+(?:waypoint\s+)?([a-z0-9]{2,8})\b/i);
+  var directMatch=msg.match(/\b(?:request direct to|direct to|proceed direct to|request direct|proceed direct)\s+(?:waypoint\s+)?([a-z0-9]{2,8})\b/i);
   var passedMatch=msg.match(/\b(?:over|abeam|passed)\s+(?:waypoint\s+)?([a-z0-9]{2,8})\b/i);
   if(directMatch){
    var directFix=directMatch[1].toUpperCase(),directIndex=s.routeWaypoints.indexOf(directFix);
