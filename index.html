@@ -212,24 +212,6 @@ button:disabled { opacity:.45; }
   letter-spacing:1px;
   margin-bottom:3px;
 }
-.diagram {
-  background:#e9edf1;
-  color:#14202c;
-  border-radius:10px;
-  padding:16px;
-  text-align:center;
-  min-height:150px;
-  display:grid;
-  place-items:center;
-}
-.runway {
-  height:22px;
-  width:82%;
-  background:#6c7784;
-  border:2px dashed white;
-  margin:12px auto;
-  transform:rotate(-8deg);
-}
 .footer {
   text-align:center;
   color:#6f849b;
@@ -333,28 +315,7 @@ button:disabled { opacity:.45; }
   </p>
 </section>
 
-<section class="card">
-  <div class="eyebrow">AIRPORT DIAGRAM</div>
-  <h2 class="section-title" id="diagramTitle">Departure Airport</h2>
 
-  <div class="diagram">
-    <div>
-      <strong id="diagramName">Salinas Municipal · KSNS</strong>
-      <div class="runway"></div>
-      <small>ILLUSTRATIVE PLACEHOLDER · NOT TO SCALE</small>
-    </div>
-  </div>
-
-  <div class="row" style="margin-top:10px">
-    <button id="faaDiagram">FAA Airport Diagrams</button>
-    <button id="arrivalDiagram">Show Destination</button>
-  </div>
-
-  <p class="notice">
-    This is not an actual airport chart. Do not use it for real taxi navigation.
-    Use official airport diagrams for accurate taxiways and runway information.
-  </p>
-</section>
 
 <section class="card full">
   <div class="between">
@@ -452,7 +413,7 @@ button:disabled { opacity:.45; }
 
 <section class="card full">
   <div class="eyebrow">AIRPORT DIRECTORY</div>
-  <h2 class="section-title">California Airport Directory</h2>
+  <h2 class="section-title">Northern & Central California Airport Directory</h2>
 
   <label for="airportSearch">Search airport or ICAO code</label>
   <input id="airportSearch" placeholder="Example: KSFO or San Francisco">
@@ -460,8 +421,7 @@ button:disabled { opacity:.45; }
   <div id="airportDirectory" class="log" style="margin-top:12px"></div>
 
   <p class="notice">
-    This is your selected airport directory, not a verified list of every airport
-    available in Aerofly FS Global.
+    Airport selection is based on the Aerofly FS 4 airport database and regional coverage. Availability can vary by simulator version and scenery package.
   </p>
 </section>
 
@@ -475,36 +435,7 @@ button:disabled { opacity:.45; }
 "use strict";
 
 const airports = [
-["Sonoma County","KSTS"],
-["Sacramento International","KSMF"],
-["Sacramento Mather","KMHR"],
-["Sacramento Executive","KSAC"],
-["Travis AFB","KSUU"],
-["Buchanan Field","KCCR"],
-["Stockton Metropolitan","KSCK"],
-["Modesto City-County","KMOD"],
-["San Francisco International","KSFO"],
-["Oakland International","KOAK"],
-["Napa County","KAPC"],
-["Petaluma Municipal","O69"],
-["Nut Tree","KVCB"],
-["Gnoss Field / Novato","KDVO"],
-["Rio Vista Municipal","O88"],
-["Lodi","1O3"],
-["Hayward Executive","KHWD"],
-["Livermore Municipal","KLVK"],
-["Tracy Municipal","KTCY"],
-["Half Moon Bay","KHAF"],
-["San Carlos","KSQL"],
-["Palo Alto","KPAO"],
-["Moffett Federal","KNUQ"],
-["San José Mineta","KSJC"],
-["Reid-Hillview","KRHV"],
-["San Martin","E16"],
-["Watsonville Municipal","KWVI"],
-["Hollister Municipal","KCVH"],
-["Salinas Municipal","KSNS"],
-["Monterey Regional","KMRY"]
+["San Francisco International","KSFO"],["Oakland International","KOAK"],["San José Mineta International","KSJC"],["Sacramento International","KSMF"],["Charles M. Schulz Sonoma County","KSTS"],["Monterey Regional","KMRY"],["Salinas Municipal","KSNS"],["Stockton Metropolitan","KSCK"],["Modesto City-County","KMOD"],["Napa County","KAPC"],["Sacramento Mather","KMHR"],["Sacramento Executive","KSAC"],["Travis Air Force Base","KSUU"],["Buchanan Field","KCCR"],["Livermore Municipal","KLVK"],["Hayward Executive","KHWD"],["Moffett Federal Airfield","KNUQ"],["Reid-Hillview","KRHV"],["Palo Alto","KPAO"],["San Carlos","KSQL"],["Half Moon Bay","KHAF"],["Watsonville Municipal","KWVI"],["Hollister Municipal","KCVH"],["Marina Municipal","KOAR"],["Gnoss Field","KDVO"],["Petaluma Municipal","KO69"],["Nut Tree","KVCB"],["Rio Vista Municipal","KO88"],["Tracy Municipal","KTCY"],["Lodi Airport","K1O3"],["San Martin Airport","KE16"],["Angwin-Parrett Field","K2O3"],["Auburn Municipal","KAUN"],["Beale Air Force Base","KBAB"],["Blue Canyon Nyack","KBLU"],["Byron Airport","KC83"],["Chico Regional","KCIC"],["Calaveras County-Maury Rasmussen Field","KCPU"],["Yolo County / Davis-Woodland-Winters","KDWA"],["Pine Mountain Lake","KE45"],["University Airport","KEDU"],["Nevada County Airport","KGOO"],["Westover Field / Amador County","KJAQ"],["Mesa Del Rey Airport","KKIC"],["Lincoln Regional","KLHM"],["Los Banos Municipal","KLSN"],["William Robert Johnston Municipal","KM90"],["Madera Municipal","KMAE"],["McClellan Airfield","KMCC"],["Merced Regional / Macready Field","KMCE"],["Castle Airport","KMER"],["Yuba County Airport","KMYV"],["Columbia Airport","KO22"],["Oakdale Airport","KO27"],["Cloverdale Municipal","KO60"],["Oroville Municipal","KOVE"],["Placerville Airport","KPVF"],["Rancho Murieta Airport","KRIU"],["Truckee Tahoe Airport","KTRK"],["Ukiah Municipal","KUKI"],["Willows-Glenn County","KWLW"],["The Sea Ranch Airport","CA51"]
 ];
 
 const $ = id => document.getElementById(id);
@@ -522,7 +453,6 @@ destination.value = "KSFO";
 
 let station = "Clearance";
 let phase = "Preflight";
-let diagramIsDestination = false;
 let recognition = null;
 let recognizing = false;
 
@@ -606,17 +536,6 @@ function hint() {
     : "Replace bracketed fields with information from your simulator. Read back runway, altitude, heading and hold-short instructions exactly.";
 }
 
-function updateDiagram() {
-  const a = airport(
-    diagramIsDestination ? destination.value : origin.value
-  );
-
-  $("diagramTitle").textContent =
-    diagramIsDestination ? "Destination Airport" : "Departure Airport";
-
-  $("diagramName").textContent = a[0] + " · " + a[1];
-}
-
 function updateDirectory() {
   const search = $("airportSearch").value.toLowerCase().trim();
   const directory = $("airportDirectory");
@@ -643,8 +562,6 @@ function updateDirectory() {
     dep.textContent = "Set Departure";
     dep.onclick = () => {
       origin.value = a[1];
-      diagramIsDestination = false;
-      updateDiagram();
       hint();
       log("AIRPORT","Departure airport set to " + a[0] + " (" + a[1] + ").");
     };
@@ -653,8 +570,6 @@ function updateDirectory() {
     arr.textContent = "Set Destination";
     arr.onclick = () => {
       destination.value = a[1];
-      diagramIsDestination = true;
-      updateDiagram();
       hint();
       log("AIRPORT","Destination airport set to " + a[0] + " (" + a[1] + ").");
     };
@@ -704,8 +619,6 @@ $("phases").addEventListener("click",e => {
 });
 
 $("startFlight").onclick = () => {
-  diagramIsDestination = false;
-  updateDiagram();
 
   $("flightStatus").textContent =
     "Active · " + origin.value + " → " + destination.value;
@@ -727,31 +640,15 @@ $("swap").onclick = () => {
   origin.value = destination.value;
   destination.value = oldOrigin;
 
-  diagramIsDestination = false;
-  updateDiagram();
   hint();
 };
 
 origin.onchange = () => {
-  if (!diagramIsDestination) updateDiagram();
   hint();
 };
 
 destination.onchange = () => {
-  if (diagramIsDestination) updateDiagram();
   hint();
-};
-
-$("arrivalDiagram").onclick = () => {
-  diagramIsDestination = !diagramIsDestination;
-  updateDiagram();
-};
-
-$("faaDiagram").onclick = () => {
-  window.open(
-    "https://www.faa.gov/airports/runway_safety/diagrams/",
-    "_blank"
-  );
 };
 
 $("callsign").oninput = hint;
@@ -925,7 +822,6 @@ $("micButton").onclick = () => {
 $("airportSearch").addEventListener("input",updateDirectory);
 
 hint();
-updateDiagram();
 updateDirectory();
 
 </script>
