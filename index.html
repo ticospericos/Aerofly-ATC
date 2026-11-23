@@ -497,12 +497,11 @@ function log(tag,text,kind="") {
 function getPreferredAtcVoice() {
   if (!("speechSynthesis" in window)) return null;
   const voices = window.speechSynthesis.getVoices().filter(v => /^en(-|_)/i.test(v.lang));
-  const maleNames = /\b(Daniel|Aaron|Alex|Fred|Tom|Rishi|Oliver|Evan|Guy|David|Mark|James|Arthur|Lee|Gordon|Nathan|Reed|Ralph)\b|Microsoft.*(Guy|David|Mark)/i;
+  const maleNames = /\b(Alex|Aaron|Evan|Guy|David|Mark|Daniel|James|Oliver|Arthur|Fred|Tom|Rishi|Lee|Gordon|Nathan|Reed|Ralph)\b|Microsoft.*(Guy|David|Mark)/i;
   const femaleNames = /Samantha|Victoria|Karen|Moira|Tessa|Fiona|Susan|Zira|Jenny|Aria|Michelle|Ava|Allison|Joanna|Kendra|Kimberly|Salli/i;
-  return voices.find(v => /^en-US/i.test(v.lang) && maleNames.test(v.name))
+  return voices.find(v => /^en-US/i.test(v.lang) && /\b(Alex|Aaron|Evan|Guy|David|Mark)\b/i.test(v.name))
     || voices.find(v => maleNames.test(v.name) && !femaleNames.test(v.name))
     || voices.find(v => /^en-US/i.test(v.lang))
-    || voices[0]
     || null;
 }
 
@@ -511,13 +510,15 @@ function speak(text) {
     log("VOICE","Speech playback is not supported by this browser.");
     return;
   }
-  window.speechSynthesis.cancel();
+  const synth = window.speechSynthesis;
+  synth.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = "en-US";
-  utterance.rate = 0.94;
-  utterance.pitch = 0.82;
-  utterance.voice = getPreferredAtcVoice();
-  window.speechSynthesis.speak(utterance);
+  utterance.rate = 0.91;
+  utterance.pitch = 0.94;
+  const voice = getPreferredAtcVoice();
+  if (voice) utterance.voice = voice;
+  synth.speak(utterance);
 }
 
 function setAtc(text) {
@@ -727,6 +728,15 @@ $("clear").onclick = () => {
   $("transcript").value = "";
 };
 
+function normalizeAviationTranscript(text) {
+  return text
+    .replace(/\bready to send\b/gi, "ready to descend")
+    .replace(/\bready descend\b/gi, "ready to descend")
+    .replace(/\brequest to send\b/gi, "request descent")
+    .replace(/\brequest decent\b/gi, "request descent")
+    .replace(/\bready for decent\b/gi, "ready to descend");
+}
+
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 $("micButton").onclick = () => {
@@ -757,15 +767,27 @@ $("micButton").onclick = () => {
       $("micButton").textContent = "■ Stop Microphone";
     };
 
-    recognition.maxAlternatives = 3;
+    recognition.maxAlternatives = 5;
     recognition.onresult = event => {
       let finalText = "";
       let interimText = "";
 
       for (let i = 0; i < event.results.length; i++) {
-        const spoken = event.results[i][0].transcript.trim();
-        if (!spoken) continue;
-        if (event.results[i].isFinal) finalText += (finalText ? " " : "") + spoken;
+        const result = event.results[i];
+        const choices = Array.from(result).map(item => item.transcript.trim()).filter(Boolean);
+        if (!choices.length) continue;
+        const aviationPhrases = [
+          /ready to descend/i, /request descent/i, /request to descend/i,
+          /descending/i, /climbing/i, /holding short/i, /ready for departure/i,
+          /cleared to land/i, /cleared for takeoff/i, /taxi to/i,
+          /contact approach/i, /contact tower/i, /contact ground/i
+        ];
+        const ranked = choices.map((text, index) => ({
+          text,
+          score: aviationPhrases.reduce((score, pattern) => score + (pattern.test(text) ? 5 : 0), 0) - index * 0.15
+        })).sort((x, y) => y.score - x.score);
+        const spoken = normalizeAviationTranscript(ranked[0].text);
+        if (result.isFinal) finalText += (finalText ? " " : "") + spoken;
         else interimText += (interimText ? " " : "") + spoken;
       }
 
