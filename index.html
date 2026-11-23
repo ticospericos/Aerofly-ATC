@@ -267,7 +267,7 @@ button:disabled { opacity:.45; }
       <h1>AEROFLY-ATC</h1>
       <small>PILOT · CONTROLLER · RADIO COMPANION</small>
     </div>
-    <span class="pill">BUILD 0.6</span>
+    <span class="pill">BUILD 0.7 · FLIGHT MONITOR</span>
   </div>
 </header>
 
@@ -401,6 +401,14 @@ button:disabled { opacity:.45; }
   </p>
 </section>
 
+<section class="card full" id="flightMonitorPanel">
+  <div class="between"><div><div class="eyebrow">OPERATIONAL FLIGHT MEMORY</div><h2 class="section-title">Flight Monitor & Diagnostics</h2></div><span class="status" id="monitorStatus">WAITING FOR DATA</span></div>
+  <div class="grid"><div><div class="eyebrow">ACTIVE CONTROLLER</div><strong id="monitorController">—</strong></div><div><div class="eyebrow">FLIGHT STAGE</div><strong id="monitorStage">—</strong></div><div><div class="eyebrow">CLEARANCE READBACK</div><strong id="monitorReadback">—</strong></div><div><div class="eyebrow">TRAFFIC SEPARATION</div><strong id="monitorTraffic">SIMULATED</strong></div></div>
+  <div class="notice" id="monitorMemory" style="margin-top:10px">Operational memory will populate after your first ATC exchange.</div>
+  <div class="log" id="monitorAlerts" style="margin-top:8px"><div class="entry">No diagnostics available yet.</div></div>
+  <p class="notice">Monitor derived from radio exchanges and saved session state. Aircraft position, actual radar, live ADS-B, navigation and chart data are not connected.</p>
+</section>
+
 <section class="card full">
   <div class="eyebrow">AIRPORT DIRECTORY</div>
   <h2 class="section-title">Aerofly FS Airports & Runways</h2>
@@ -527,7 +535,8 @@ const TTS_API = "https://aerofly-atc-brain.fy5794mdw9.workers.dev/tts";
 let conversationHistory = [];
 let flightState = {};
 let currentFrequency = "";
-const SESSION_KEY = "aerofly-atc-session-v2";
+const SESSION_KEY = "aerofly-atc-session-v3";
+const LEGACY_SESSION_KEY = "aerofly-atc-session-v2";
 const PLAN_KEY = "aerofly-atc-flight-plans-v1";
 let activeSession = false;
 
@@ -593,11 +602,20 @@ function log(tag,text,kind="") {
   }
 }
 
+function renderFlightMonitor(data={}) {
+ const memory=data.operationalMemory||flightState.operationalMemory||{},monitor=data.flightMonitor||{},diagnostics=data.diagnostics||monitor.diagnostics||{};
+ const set=(id,value)=>{const node=$(id);if(node)node.textContent=value||"—";};
+ set("monitorController",monitor.controller||memory.activeController||station);set("monitorStage",monitor.stage||(memory.flight&&memory.flight.stage)||phase);
+ set("monitorReadback",monitor.readback?(monitor.readback.verified?"VERIFIED":monitor.readback.pending?"PENDING":"NOT REQUIRED"):(flightState.clearanceReadbackVerified?"VERIFIED":"PENDING"));
+ set("monitorTraffic",monitor.traffic&&monitor.traffic.conflict?"CONFLICT · SIMULATED":"CLEAR / UNKNOWN · SIMULATED");set("monitorStatus",diagnostics.status||"SESSION MEMORY");
+ const c=memory.clearance||{},a=memory.approach||{},parts=[];if(c.departureRunway)parts.push("DEP RWY "+c.departureRunway);if(c.arrivalRunway)parts.push("ARR RWY "+c.arrivalRunway);if(c.initialAltitude)parts.push("INITIAL "+c.initialAltitude);if(c.cruiseAltitude)parts.push("CRUISE "+c.cruiseAltitude);if(c.squawk)parts.push("SQUAWK "+c.squawk);if(a.stage&&a.stage!=="NOT_STARTED")parts.push("APPROACH "+a.stage);if(memory.handoffs&&memory.handoffs.length)parts.push("HANDOFFS "+memory.handoffs.length);set("monitorMemory",parts.join(" · ")||"Operational memory will populate after your first ATC exchange.");
+ const list=$("monitorAlerts");if(list){list.innerHTML="";const items=diagnostics.items||[];if(!items.length){const item=document.createElement("div");item.className="entry";item.textContent="No active diagnostic alerts.";list.append(item);}else items.forEach(alert=>{const item=document.createElement("div");item.className="entry";const title=document.createElement("div");title.className="tag";title.textContent=(alert.level||"INFO")+" · "+(alert.code||"CHECK");const message=document.createElement("div");message.textContent=alert.message||"Review flight monitor.";item.append(title,message);list.append(item);});}
+}
 function saveSession() {
   if(!activeSession || !flightId) return;
   try {
     localStorage.setItem(SESSION_KEY,JSON.stringify({
-      version:2,active:true,flightId,savedAt:new Date().toISOString(),
+      version:3,active:true,flightId,savedAt:new Date().toISOString(),
       callsign:$("callsign").value,aircraft:$("aircraft").value,
       origin:origin.value,destination:destination.value,flightRules:$("flightType").value,
       station,phase,currentFrequency,flightState,conversationHistory:conversationHistory.slice(-8),
@@ -891,6 +909,7 @@ $("startFlight").onclick = () => {
   conversationHistory = [];
   flightState = {};
   currentFrequency = "";
+  renderFlightMonitor();
   sessionLog = [];
   flightId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : "flight-" + Date.now() + "-" + Math.random().toString(36).slice(2);
   activeSession = true;
@@ -981,6 +1000,7 @@ $("send").onclick = async () => {
 
     if (data.frequency) currentFrequency = data.frequency;
     if (data.state && typeof data.state === "object") flightState = data.state;
+    renderFlightMonitor(data);
 
     if (data.phase) {
       phase = data.phase;
@@ -1223,7 +1243,8 @@ $("stationLabel").textContent = "CLEARANCE DELIVERY";
 hint();
 updateDirectory();
 refreshSavedPlans();
-if(restoreSession()) log("SYSTEM","Previous flight session recovered. ATC memory, clearance state and radio history restored.");
+if(restoreSession()) log("SYSTEM","Previous flight session recovered. Operational memory, clearance state and radio history restored.");
+renderFlightMonitor();
 
 </script>
 </body>
