@@ -29,9 +29,26 @@ function makeTraffic(seed,runway){
  var item=options[seededNumber(seed+":traffic",options.length)];
  return {callsign:item.callsign,aircraft:item.aircraft,position:item.position,runway:runway,simulated:true};
 }
+function makeTrafficFleet(seed,runway){
+ var pool=[
+  {callsign:"Cessna Seven Two Lima",aircraft:"Cessna 172",position:"left downwind"},
+  {callsign:"Citation Eight Romeo",aircraft:"Citation CJ4",position:"five-mile final"},
+  {callsign:"Piper Six Five Kilo",aircraft:"Piper PA-28",position:"right downwind"},
+  {callsign:"Skyhawk Three One Papa",aircraft:"Cessna 172",position:"entering the pattern"},
+  {callsign:"United Four Twenty",aircraft:"Boeing 737",position:"holding short"},
+  {callsign:"Learjet Five Niner Mike",aircraft:"Learjet 45",position:"departing"}
+ ];
+ var start=seededNumber(seed+":fleet",pool.length),fleet=[];
+ for(var i=0;i<3;i++){var item=pool[(start+i*2)%pool.length];fleet.push({callsign:item.callsign,aircraft:item.aircraft,position:item.position,runway:runway,simulated:true});}
+ return fleet;
+}
 function trafficAdvisory(s){
- var t=s.simulatedTraffic;
- return t?" Simulated traffic advisory: "+t.callsign+", "+t.aircraft+", "+t.position+" runway "+t.runway+".":"";
+ var fleet=Array.isArray(s.simulatedTrafficFleet)?s.simulatedTrafficFleet:[s.simulatedTraffic].filter(Boolean);
+ if(!fleet.length)return "";
+ var index=(Number(s.trafficAdvisoryIndex)||0)%fleet.length;
+ s.trafficAdvisoryIndex=index+1;
+ var t=fleet[index];
+ return " Simulated traffic advisory: "+t.callsign+", "+t.aircraft+", "+t.position+" runway "+t.runway+".";
 }
 function stateFrom(history,c){if(c.flightState&&typeof c.flightState==="object"&&Object.keys(c.flightState).length)return c.flightState;for(var i=(history||[]).length-1;i>=0;i--){if(history[i].role==="model"){try{var x=JSON.parse(history[i].text);if(x.state)return x.state;}catch(e){}}}return {};}
 function aircraftProfile(name,rules){
@@ -112,7 +129,7 @@ function core(message,c,history){
  var station=called||(first?"Clearance":clean(c.station||s.lastStation||"Clearance",24));
  var phase=clean(c.phase||s.phase||"Preflight",24),frequency="",atc="",hint="",explanation="";
  if(emergency){
-  var radioFailure=/(lost comms|radio failure|unable to communicate)/i.test(message);
+  var radioFailure=/(lost comms|lost communication|lost communications|radio failure|radio out|unable to communicate|unable to transmit|unable to receive|two.?way radio failure|communications failure|comms failure)/i.test(message);
   var emergencySquawk=radioFailure?"7600":"7700";
   s.squawk=emergencySquawk;
   station=called&&called!=="ATIS"?called:"Tower";phase="Emergency";frequency="121.500";
@@ -331,7 +348,8 @@ function core(message,c,history){
    }
   }else if(/\b(request descent|ready to descend|descending|inbound|request approach|approach)\b/i.test(msg)){
    station="Approach";phase="Approach";frequency="124.000";s.stage="Approach";
-   if(!s.simulatedTraffic)s.simulatedTraffic=makeTraffic(s.flightId||"flight",ar);
+   if(!s.simulatedTrafficFleet)s.simulatedTrafficFleet=makeTrafficFleet(s.flightId||"flight",ar);
+    if(!s.simulatedTraffic)s.simulatedTraffic=s.simulatedTrafficFleet[0];
    s.approachAltitude=s.approachAltitude||"6,000 feet";
    s.approachType=String(c.flightRules||"IFR").toUpperCase()==="VFR"?"visual":"instrument";
    s.approachRunwayHeading=hdg(ar);
@@ -426,11 +444,13 @@ function core(message,c,history){
 }
 export default {async fetch(request,env){
  var url=new URL(request.url),origin=request.headers.get("Origin")||"";
- if(request.method==="OPTIONS")return new Response(null,{headers:headers()});
+ if(origin&&origin!==ALLOWED_ORIGIN)return out({error:"Origin not allowed"},403);
+ if(request.method==="OPTIONS")return new Response(null,{status:204,headers:headers()});
  if(request.method==="GET"&&url.pathname==="/health")return out({ok:true,service:"AEROFLY-ATC Brain",engine:"AEROFLY ATC CORE",mode:"CORE ONLY",neuralVoice:env.AI?"Grok TTS ready":"AI binding required"});
  if(request.method==="POST"&&url.pathname==="/tts"){
-  if(origin&&origin!==ALLOWED_ORIGIN)return out({error:"Origin not allowed"},403);
   try{
+   if(Number(request.headers.get("Content-Length")||0)>12000)return out({error:"Request body too large"},413);
+   if(!/application\\/json/i.test(request.headers.get("Content-Type")||""))return out({error:"Content-Type must be application/json"},415);
    if(!env.AI||typeof env.AI.run!=="function")return out({error:"Neural voice is not configured. Add the Workers AI binding named AI."},503);
    var ttsBody=await request.json(),ttsText=clean(ttsBody.text,1800);
    if(!ttsText)return out({error:"Text is required"},400);
@@ -445,8 +465,11 @@ export default {async fetch(request,env){
   }catch(ttsError){return out({error:"Neural voice request failed",details:clean(ttsError&&ttsError.message,180)},502);}
  }
  if(request.method!=="POST"||url.pathname!=="/atc")return out({error:"Use POST /atc or GET /health"},404);
- if(origin&&origin!==ALLOWED_ORIGIN)return out({error:"Origin not allowed"},403);
- try{var body=await request.json(),message=clean(body.message,3000),context=body.context||{},history=Array.isArray(body.history)?body.history.slice(-8):[];if(!message)return out({error:"Message is required"},400);
+ try{
+  if(Number(request.headers.get("Content-Length")||0)>16000)return out({error:"Request body too large"},413);
+  if(!/application\\/json/i.test(request.headers.get("Content-Type")||""))return out({error:"Content-Type must be application/json"},415);
+  var body=await request.json(),message=clean(body.message,3000),context=body.context&&typeof body.context==="object"?body.context:{},history=Array.isArray(body.history)?body.history.slice(-8):[];
+  if(!message)return out({error:"Message is required"},400);
  return out(core(message,context,history));
  }catch(e){return out({error:"Request could not be processed",details:clean(e.message,200)},500);}
 }};
