@@ -41,7 +41,7 @@ function core(message,c,history){
   s.initialized=true;
  }
  var dr=s.assignedDepartureRunway||"assigned runway",ar=s.assignedArrivalRunway||"assigned runway";
- var station=first?"Clearance":(called||clean(c.station||s.lastStation||"Clearance",24));
+ var station=called||(first?"Clearance":clean(c.station||s.lastStation||"Clearance",24));
  var phase=clean(c.phase||s.phase||"Preflight",24),frequency="",atc="",hint="",explanation="";
  if(emergency){
   station=called&&called!=="ATIS"?called:"Tower";phase="Emergency";frequency="121.500";
