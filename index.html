@@ -480,6 +480,49 @@ let recognition = null;
 let recognizing = false;
 let recognitionBaseText = "";
 const ATC_API = "https://aerofly-atc-brain.fy5794mdw9.workers.dev/atc";
+async function requestAtcWithRecovery(payload) {
+  let lastError = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const controller = new AbortController();
+    const requestTimer = setTimeout(() => controller.abort(), 18000);
+    try {
+      const response = await fetch(ATC_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+      const raw = await response.text();
+      let data;
+      try { data = JSON.parse(raw); }
+      catch (_) { throw new Error("ATC server returned an invalid response."); }
+      if (!response.ok) {
+        const error = new Error(data.details || data.error || "ATC service returned HTTP " + response.status);
+        error.status = response.status;
+        if (attempt === 0 && [502, 503, 504].includes(response.status)) {
+          lastError = error;
+          await new Promise(resolve => setTimeout(resolve, 650));
+          continue;
+        }
+        throw error;
+      }
+      if (!data.atc || !data.hint) throw new Error("ATC response was incomplete. Please transmit again.");
+      return data;
+    } catch (error) {
+      lastError = error;
+      if (attempt === 0 && (error.name === "AbortError" || error instanceof TypeError)) {
+        await new Promise(resolve => setTimeout(resolve, 650));
+        continue;
+      }
+      throw error;
+    } finally {
+      clearTimeout(requestTimer);
+    }
+  }
+  throw lastError || new Error("ATC recovery retry failed.");
+}
+
+
 const TTS_API = "https://aerofly-atc-brain.fy5794mdw9.workers.dev/tts";
 let conversationHistory = [];
 let flightState = {};
@@ -919,22 +962,11 @@ $("send").onclick = async () => {
   };
 
   try {
-    const controller = new AbortController();
-    const requestTimer = setTimeout(() => controller.abort(), 40000);
-    let response, raw, data;
-    try {
-      response = await fetch(ATC_API, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, context, history: conversationHistory.slice(-8) }),
-        signal: controller.signal
-      });
-      raw = await response.text();
-      try { data = JSON.parse(raw); }
-      catch (_) { throw new Error("ATC server returned an invalid response. Please transmit again."); }
-    } finally { clearTimeout(requestTimer); }
-    if (!response.ok) throw new Error(data.details || data.error || "ATC service returned HTTP " + response.status);
-    if (!data.atc || !data.hint) throw new Error("ATC response was incomplete. Please transmit again.");
+    const data = await requestAtcWithRecovery({
+      message,
+      context,
+      history: conversationHistory.slice(-8)
+    });
 
     conversationHistory.push(
       { role: "user", text: message },
