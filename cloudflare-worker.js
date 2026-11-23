@@ -89,6 +89,11 @@ function core(message,c,history){
   s.assignedCruiseAltitude=s.assignedCruiseAltitude||s.aircraftProfile.cruiseAltitude;
   s.approachSpeed=s.approachSpeed||s.aircraftProfile.approachSpeed;
  }
+ if(Array.isArray(c.plannedRoute)&&c.plannedRoute.length){
+  s.routeWaypoints=c.plannedRoute.map(function(item){return clean(item,10).toUpperCase();}).filter(Boolean).slice(0,40);
+  if(!Number.isInteger(s.routeIndex))s.routeIndex=0;
+ }
+ if(!Array.isArray(s.routeWaypoints))s.routeWaypoints=[];
  var dr=s.assignedDepartureRunway||"assigned runway",ar=s.assignedArrivalRunway||"assigned runway";
  var station=called||(first?"Clearance":clean(c.station||s.lastStation||"Clearance",24));
  var phase=clean(c.phase||s.phase||"Preflight",24),frequency="",atc="",hint="",explanation="";
@@ -221,7 +226,35 @@ function core(message,c,history){
   explanation="Confirma el ascenso y contacta Center cuando estés establecido en ruta.";
  } else if(station==="Center"){
   frequency="127.000";
-  if(/\b(request descent|ready to descend|descending|inbound|request approach|approach)\b/i.test(msg)){
+  var directMatch=msg.match(/\b(?:request direct|direct to|proceed direct)\s+(?:waypoint\s+)?([a-z0-9]{2,8})\b/i);
+  var passedMatch=msg.match(/\b(?:over|abeam|passed)\s+(?:waypoint\s+)?([a-z0-9]{2,8})\b/i);
+  if(directMatch){
+   var directFix=directMatch[1].toUpperCase(),directIndex=s.routeWaypoints.indexOf(directFix);
+   if(directIndex<0){
+    atc=cs+", unable to verify "+directFix+" in your saved flight plan. Confirm the waypoint or request a route amendment.";
+    hint=cs+", unable to verify waypoint "+directFix+", request route amendment.";
+    explanation="El punto solicitado no aparece en la ruta guardada. No se calcula un rumbo real ni se consulta navegación externa.";
+   }else{
+    s.routeIndex=directIndex;s.currentWaypoint=directFix;
+    atc=cs+", direct "+directFix+" approved as a simulated route amendment. Proceed direct to "+directFix+" using your simulator's flight plan. Maintain "+(s.assignedCruiseAltitude||s.initialAltitude)+".";
+    hint=cs+", direct "+directFix+" approved, maintaining "+(s.assignedCruiseAltitude||s.initialAltitude)+", "+cs+".";
+    explanation="ATC reconoce el waypoint de tu plan guardado. La ruta y el rumbo deben verificarse en Aerofly; este sistema no lee la posición real.";
+   }
+  } else if(passedMatch){
+   var passedFix=passedMatch[1].toUpperCase(),passedIndex=s.routeWaypoints.indexOf(passedFix);
+   if(passedIndex<0){
+    atc=cs+", say again the waypoint. "+passedFix+" is not in the saved route.";
+    hint=cs+", confirm waypoint name.";
+    explanation="El waypoint reportado no aparece en la ruta guardada.";
+   }else{
+    s.routeIndex=Math.max(Number(s.routeIndex)||0,passedIndex+1);
+    var nextFix=s.routeWaypoints[s.routeIndex]||"destination";
+    s.currentWaypoint=nextFix==="destination"?"":nextFix;
+    atc=cs+", roger, "+passedFix+" passed. Next planned waypoint "+nextFix+". Maintain "+(s.assignedCruiseAltitude||s.initialAltitude)+".";
+    hint=cs+", "+passedFix+" passed, proceeding to "+nextFix+", "+cs+".";
+    explanation="Progreso de ruta actualizado con base en tu reporte verbal, no en telemetría de Aerofly.";
+   }
+  } else if(/\b(request descent|ready to descend|descending|inbound|request approach|approach)\b/i.test(msg)){
    station="Approach";phase="Approach";frequency="124.000";s.stage="Approach";
    s.approachAltitude=s.approachAltitude||"6,000 feet";
    s.approachType=String(c.flightRules||"IFR").toUpperCase()==="VFR"?"visual":"instrument";
