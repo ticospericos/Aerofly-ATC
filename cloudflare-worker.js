@@ -431,6 +431,7 @@ function core(message,c,history){
    hint=cs+", heading "+String(s.assignedVectorHeading).padStart(3,"0")+", descending, expect runway "+ar+", "+cs+".";
    explanation="Vector inicial de aproximación simulado. No es una instrucción de navegación real.";
   }
+  if(s.simulatedTrafficFleet&&atc&&!/Simulated traffic advisory/i.test(atc))atc+=trafficAdvisory(s);
  } else if(station==="Unicom"){
   frequency="122.800";atc=dep[0]+" traffic, "+cs+", radio call received. Continue to announce position and intentions.";
   hint=dep[0]+" traffic, "+cs+", [position and intentions].";explanation="UNICOM es frecuencia de autoanuncio, no control ATC.";
