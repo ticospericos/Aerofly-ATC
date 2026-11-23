@@ -54,6 +54,13 @@ function simulatedRunwayConflict(s){
  var fleet=Array.isArray(s.simulatedTrafficFleet)?s.simulatedTrafficFleet:[s.simulatedTraffic].filter(Boolean);
  return fleet.some(function(t){return t&&t.runway===s.assignedDepartureRunway&&/final|base|holding short|departing/i.test(String(t.position||""));});
 }
+function buildOperationalMemory(s,message,station,phase,atc){
+ var m=s.operationalMemory&&typeof s.operationalMemory==="object"?s.operationalMemory:{};var handoffs=Array.isArray(m.handoffs)?m.handoffs:[];var previous=m.activeController||s.lastStation||"";
+ if(previous&&station&&previous!==station)handoffs.push({from:previous,to:station,phase:phase,at:new Date().toISOString()});
+ m={version:1,flightId:s.flightId||"",revision:(Number(m.revision)||0)+1,updatedAt:new Date().toISOString(),flight:{stage:s.stage||"Preflight",phase:phase,departure:s.departureAirport||"",destination:s.destinationAirport||"",flightRules:s.flightRules||"",aircraft:s.aircraftProfile&&s.aircraftProfile.name||"",route:Array.isArray(s.routeWaypoints)?s.routeWaypoints:[],routeIndex:Number(s.routeIndex)||0,currentWaypoint:s.currentWaypoint||""},clearance:{departureRunway:s.assignedDepartureRunway||"",arrivalRunway:s.assignedArrivalRunway||"",initialAltitude:s.initialAltitude||"",cruiseAltitude:s.assignedCruiseAltitude||"",squawk:s.squawk||"",verified:!!s.clearanceReadbackVerified,pending:!!s.readbackPending},activeController:station||previous,frequency:s.frequency||"",handoffs:handoffs.slice(-24),lastPilotCall:String(message||"").slice(0,180),lastControllerInstruction:String(atc||"").slice(0,260),approach:{type:s.approachType||"NOT_SET",stage:s.approachVectorStage||"NOT_STARTED",runway:s.assignedArrivalRunway||"",localizerReported:!!s.approachLocalizerReported,glideslopeReported:!!s.approachGlideslopeReported,stableReported:!!s.stableApproachReported},emergency:{active:s.stage==="Emergency",squawk:s.stage==="Emergency"?(s.squawk||"7700"):""},telemetry:"NOT_CONNECTED",source:"CLIENT_SESSION_AND_CONVERSATION_HISTORY"};s.operationalMemory=m;return m;
+}
+function advanceSimulatedTraffic(s){var fleet=Array.isArray(s.simulatedTrafficFleet)?s.simulatedTrafficFleet:[];if(!fleet.length)return {active:false,simulated:true,conflict:false,traffic:[]};var tick=(Number(s.trafficSimulationTick)||0)+1;s.trafficSimulationTick=tick;var positions=["left downwind","base leg","five-mile final","two-mile final","landing","vacated runway","taxiing clear"];fleet.forEach(function(t,i){if(!t||t.manualPosition===true)return;t.position=positions[(tick+(Number(t.phaseOffset)||i*2))%positions.length];t.simulated=true;});var conflict=fleet.some(function(t){return t&&t.runway===s.assignedDepartureRunway&&/final|base|holding short|departing|landing/i.test(String(t.position||""));});return {active:true,simulated:true,conflict:conflict,tick:tick,traffic:fleet.map(function(t){return {callsign:t.callsign,aircraft:t.aircraft,position:t.position,runway:t.runway,simulated:true};})};}
+function buildFlightMonitor(s,station,phase){var r=s.flightRecorder||{},traffic=s.trafficSeparation||{conflict:false,traffic:[]},alerts=[];if(s.readbackPending)alerts.push({level:"WARNING",code:"READBACK_PENDING",message:"Clearance readback still requires correction or completion."});if(s.stage==="Emergency")alerts.push({level:"CRITICAL",code:"EMERGENCY_DECLARED",message:"Simulated emergency state active; follow simulator scenario only."});if(traffic.conflict)alerts.push({level:"WARNING",code:"SIMULATED_TRAFFIC_CONFLICT",message:"Simulated traffic may affect runway availability."});if(s.stage==="Approach"&&s.approachVectorStage==="Final"&&!s.stableApproachReported)alerts.push({level:"INFO",code:"STABILIZATION_UNCONFIRMED",message:"Pilot has not reported a stable approach; no aircraft telemetry is available."});return {version:1,phase:phase,stage:s.stage||"Preflight",controller:station,frequency:s.frequency||"",runway:{departure:s.assignedDepartureRunway||"",arrival:s.assignedArrivalRunway||""},altitude:{initial:s.initialAltitude||"",assigned:s.assignedCruiseAltitude||s.approachAltitude||""},squawk:s.squawk||"",readback:{pending:!!s.readbackPending,verified:!!s.clearanceReadbackVerified,last:s.lastReadback||null},approach:s.operationalMemory&&s.operationalMemory.approach||{},traffic:{simulated:true,conflict:!!traffic.conflict,count:(traffic.traffic||[]).length},recorder:{transmissions:Number(r.transmissions)||0,readbackErrors:Number(r.readbackErrors)||0,phaseChanges:Number(r.phaseChanges)||0},telemetry:"NOT_CONNECTED",alerts:alerts,diagnostics:{status:alerts.some(function(a){return a.level==="CRITICAL";})?"ATTENTION":alerts.some(function(a){return a.level==="WARNING";})?"CHECK":"NOMINAL",items:alerts}};}
 function stateFrom(history,c){if(c.flightState&&typeof c.flightState==="object"&&Object.keys(c.flightState).length)return c.flightState;for(var i=(history||[]).length-1;i>=0;i--){if(history[i].role==="model"){try{var x=JSON.parse(history[i].text);if(x.state)return x.state;}catch(e){}}}return {};}
 function aircraftProfile(name,rules){
  var key=String(name||"").toLowerCase(),vfr=String(rules||"IFR").toUpperCase()==="VFR";
@@ -93,7 +100,8 @@ function core(message,c,history){
  if(!called){for(var ci=0;ci<calls.length;ci++){if(calls[ci][1].test(msg)){called=calls[ci][0];break;}}}
  var stage=s.stage||"Preflight";
  s.flightId=clean(c.flightId||s.flightId,100);
- s.stateVersion=2;
+ s.stateVersion=3;
+ s.departureAirport=dep[1];s.destinationAirport=arr[1];s.flightRules=String(c.flightRules||s.flightRules||"IFR").toUpperCase();
  if(!called){
   if(stage==="ClearedToTaxi"&&/\b(ready to taxi|request taxi|taxi clearance|taxi)\b/i.test(msg))called="Ground";
   else if((stage==="Taxi"||stage==="HoldingShort")&&/\b(ready for departure|ready for takeoff|request takeoff|ready for take.?off)\b/i.test(msg))called="Tower";
@@ -135,6 +143,7 @@ function core(message,c,history){
  }
  if(!Array.isArray(s.routeWaypoints))s.routeWaypoints=[];
  var dr=s.assignedDepartureRunway||"assigned runway",ar=s.assignedArrivalRunway||"assigned runway";
+ var previousController=s.lastStation||"";
  var station=called||(first?"Clearance":clean(c.station||s.lastStation||"Clearance",24));
  var phase=clean(c.phase||s.phase||"Preflight",24),frequency="",atc="",hint="",explanation="";
  var clearanceReadbackPending=s.stage==="ClearedToTaxi"&&!s.clearanceReadbackVerified;
@@ -467,6 +476,12 @@ function core(message,c,history){
   atc=cs+", say again. Clearance Delivery.";hint="Clearance Delivery, "+cs+", say again.";
   explanation="No identifiqué la estación llamada. Repite tu llamada inicial.";
  }
+ if(s.simulatedTrafficFleet&&s.simulatedTrafficFleet.length)s.trafficSeparation=advanceSimulatedTraffic(s);
+ if(/\b(localizer|established on the localizer|intercepting the localizer)\b/i.test(msg))s.approachLocalizerReported=true;
+ if(/\b(glideslope|glide slope)\b/i.test(msg))s.approachGlideslopeReported=true;
+ if(/\b(stable approach|stabilized approach|stable on final)\b/i.test(msg))s.stableApproachReported=true;
+ if(/\b(unstable approach|unstable)\b/i.test(msg)){s.stableApproachReported=false;s.approachUnstableReported=true;}
+ if(/\b(go.?around|going around|missed approach)\b/i.test(msg)){s.approachLocalizerReported=false;s.approachGlideslopeReported=false;s.stableApproachReported=false;}
  s.phase=phase;s.lastStation=station;s.frequency=frequency;s.updatedAt=new Date().toISOString();
 // Persistent simulator-side lifecycle and compact flight recorder. Telemetry is not connected.
 var previousLifecycle=s.flightLifecycle||{};
@@ -505,7 +520,10 @@ s.flightRecorder.events=Array.isArray(s.flightRecorder.events)?s.flightRecorder.
 s.flightRecorder.events.push({phase:phase,station:station,pilotCall:String(message||"").slice(0,120),atc:String(atc||"").slice(0,220),timestamp:s.updatedAt});
 s.flightRecorder.events=s.flightRecorder.events.slice(-20);
 
- return {station:station,phase:phase,frequency:frequency,atc:atc,hint:hint,explanation:explanation,state:s,engine:"AEROFLY ATC CORE",recovery:{available:true,stateVersion:s.stateVersion||2,source:lifecycle.recovery.stateSource},radio:{congestionSimulated:true,trafficSimulated:true}};
+ var operationalMemory=buildOperationalMemory(s,message,station,phase,atc);
+ var flightMonitor=buildFlightMonitor(s,station,phase);
+ var handoff=previousController&&previousController!==station?{from:previousController,to:station,coordinated:true,simulated:true}:null;
+ return {station:station,phase:phase,frequency:frequency,atc:atc,hint:hint,explanation:explanation,state:s,engine:"AEROFLY ATC CORE",operationalMemory:operationalMemory,controllerCoordination:{activeController:station,previousController:previousController||null,handoff:handoff,handoffCount:operationalMemory.handoffs.length,simulated:true},flightMonitor:flightMonitor,diagnostics:flightMonitor.diagnostics,recovery:{available:true,stateVersion:s.stateVersion||3,source:lifecycle.recovery.stateSource},radio:{congestionSimulated:true,trafficSimulated:true,separationSimulated:true},limitations:{telemetry:"NOT_CONNECTED",traffic:"SIMULATED_ONLY",navigation:"NO_LIVE_POSITION_OR_CHART_DATA"}};
 }
 export default {async fetch(request,env){
  var url=new URL(request.url),origin=request.headers.get("Origin")||"";
