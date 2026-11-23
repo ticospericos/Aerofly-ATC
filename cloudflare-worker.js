@@ -92,7 +92,7 @@ function core(message,c,history){
      s.nextStation="Tower";
    }else if(s.emergencyStage==="APPROACH"){
      station="Tower";frequency="118.300";s.emergencyStage="LANDING";
-     atc=`${cs}, runway ${runwayName}, cleared to land. Wind ${String(s.simWind||270).padStart(3,"0")} at 6 knots. Emergency equipment is standing by. After landing, stop if necessary and advise your status; do not cross another runway until instructed.`;
+     atc=`${cs}, runway ${runwayName}, cleared to land. Wind ${String(s.simWind||270).padStart(3,"0")} at ${s.simWindSpeed||6} knots. Emergency equipment is standing by. After landing, stop if necessary and advise your status; do not cross another runway until instructed.`;
      hint=`${cs}, cleared to land runway ${runwayName}.`;
      explanation="Autorización de aterrizaje con vehículos de emergencia en espera.";
      s.nextStation="Ground";
