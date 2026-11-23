@@ -214,7 +214,7 @@ function core(message,c,history){
    explanation="Continúa la carrera de aterrizaje y libera la pista cuando sea seguro.";
   } else if(s.stage==="Approach"&&s.approachVectorStage==="Final"&&/\b(established on final|on final|final approach|runway in sight|visual approach)\b/i.test(msg)){
    phase="Landing";s.stage="Landing";
-   atc=cs+", runway "+ar+", cleared to land. Wind "+((s.weather&&s.weather.wind)||"variable")+". After landing, vacate when able and contact Ground on 121.900.";
+   atc=cs+", runway "+ar+", cleared to land. Wind "+((s.weather&&s.weather.wind)||"variable")+". After landing, vacate when able and contact Ground on 121.900."+trafficAdvisory(s);
    hint=cs+", cleared to land runway "+ar+", "+cs+".";
    explanation="Autorización de aterrizaje simulada. Después de liberar la pista, contacta Ground.";
   } else if(s.stage==="Approach"){
@@ -240,7 +240,7 @@ function core(message,c,history){
   explanation="Confirma el ascenso y contacta Center cuando estés establecido en ruta.";
  } else if(station==="Center"){
   frequency="127.000";
-  var diversionMatch=msg.match(/\b(?:divert(?:ing)? to|alternate(?: airport)?\s+)([a-z0-9]{3,4})\b/i);
+  var directMatch=null,diversionMatch=msg.match(/\b(?:divert(?:ing)? to|alternate(?: airport)?\s+)([a-z0-9]{3,4})\b/i);
   if(/\b(request diversion|divert due to weather|weather diversion|request alternate)\b/i.test(msg)&&!diversionMatch){
    s.diversionRequested=true;
    atc=cs+", weather deviation acknowledged. State your requested alternate airport and fuel endurance. Maintain present altitude and advise if conditions worsen.";
@@ -288,18 +288,19 @@ function core(message,c,history){
    }
   } else if(/\b(request descent|ready to descend|descending|inbound|request approach|approach)\b/i.test(msg)){
    station="Approach";phase="Approach";frequency="124.000";s.stage="Approach";
+   if(!s.simulatedTraffic)s.simulatedTraffic=makeTraffic(s.flightId||"flight",ar);
    s.approachAltitude=s.approachAltitude||"6,000 feet";
    s.approachType=String(c.flightRules||"IFR").toUpperCase()==="VFR"?"visual":"instrument";
    s.approachRunwayHeading=hdg(ar);
    s.assignedVectorHeading=(s.approachRunwayHeading+(s.approachRunwayHeading>=180?-20:20)+360)%360;
    if(s.approachType==="visual"){
     s.approachVectorStage="VFRPattern";
-    atc=cs+", "+arr[0]+" Approach. Proceed to the airport and enter the visual traffic pattern as depicted in your simulator for runway "+ar+". Report downwind. Maintain the published or simulator pattern altitude.";
+    atc=cs+", "+arr[0]+" Approach. Proceed to the airport and enter the visual traffic pattern as depicted in your simulator for runway "+ar+". Report downwind. Maintain the published or simulator pattern altitude."+trafficAdvisory(s);
     hint=cs+", entering the traffic pattern runway "+ar+", will report downwind, "+cs+".";
     explanation="Circuito VFR simulado. Utiliza el patrón y la altitud indicados por Aerofly; no se inventan sentidos de giro ni altitudes locales.";
    }else{
     s.approachVectorStage="Vectors";
-    atc=cs+", "+arr[0]+" Approach. Expect vectors for a simulated instrument approach runway "+ar+". Turn heading "+String(s.assignedVectorHeading).padStart(3,"0")+". Descend and maintain "+s.approachAltitude+". Reduce speed to "+s.aircraftProfile.approachSpeed+" when able. Report established on the localizer or inbound course.";
+    atc=cs+", "+arr[0]+" Approach. Expect vectors for a simulated instrument approach runway "+ar+". Turn heading "+String(s.assignedVectorHeading).padStart(3,"0")+". Descend and maintain "+s.approachAltitude+". Reduce speed to "+s.aircraftProfile.approachSpeed+" when able. Report established on the localizer or inbound course."+trafficAdvisory(s);
     hint=cs+", heading "+String(s.assignedVectorHeading).padStart(3,"0")+", descending to "+s.approachAltitude+", reducing to "+s.aircraftProfile.approachSpeed+", "+cs+".";
     explanation="Aproximación IFR simulada con vectores. No representa una carta, procedimiento publicado ni guía real de navegación.";
    }
