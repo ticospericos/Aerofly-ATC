@@ -65,7 +65,6 @@ function core(message,c,history){
   else if(stage==="Departure"&&/\b(established en.?route|level at|leveling at|cruise altitude|contact center|center)\b/i.test(msg))called="Center";
   else if(stage==="Cruise"&&/\b(request descent|ready to descend|descending|inbound|request approach|approach)\b/i.test(msg))called="Approach";
   else if(stage==="Approach"&&/\b(go.?around|going around|missed approach)\b/i.test(msg))called="Tower";
-  else if(stage==="Approach"&&/\b(established on final|on final|final approach|visual|runway in sight)\b/i.test(msg))called="Tower";
   else if(stage==="Landing"&&/\b(vacated|clear of runway|runway clear|off the runway)\b/i.test(msg))called="Ground";
   else if(stage==="TaxiIn"&&/\b(parked|at parking|at the gate|shut down|shutdown)\b/i.test(msg))called="Ground";
  }
@@ -136,7 +135,7 @@ function core(message,c,history){
   }
  } else if(station==="Ground"){
   frequency="121.900";
-  if(/\b(request pushback|pushback and start|request start|engine start|start-up|startup)\b/i.test(msg)&&s.stage!=="Taxi"&&s.stage!=="HoldingShort"){
+  if(/\b(request pushback|pushback and start|request start|engine start|start-up|startup)\b/i.test(msg)&&s.stage!=="HoldingShort"&&s.stage!=="Takeoff"&&s.stage!=="Landing"&&s.stage!=="TaxiIn"&&s.stage!=="Parked"){
    phase="Ground Operations";s.stage="Pushback";
    atc=cs+", pushback and engine start approved. Start at your discretion and advise when pushback is complete. Use the pushback guidance in your simulator.";
    hint=cs+", pushback and engine start approved, will advise when pushback is complete, "+cs+".";
@@ -194,6 +193,11 @@ function core(message,c,history){
    atc=cs+", runway "+ar+", cleared to land. Wind "+((s.weather&&s.weather.wind)||"variable")+". After landing, vacate when able and contact Ground on 121.900.";
    hint=cs+", cleared to land runway "+ar+", "+cs+".";
    explanation="Autorización de aterrizaje simulada. Después de liberar la pista, contacta Ground.";
+  } else if(s.stage==="Approach"){
+   phase="Approach";s.stage="Approach";station="Approach";frequency="124.000";
+   atc=cs+", remain with "+arr[0]+" Approach. Landing clearance is not available yet. Report established on final to Approach, then contact Tower.";
+   hint=cs+", remaining with Approach, will report established on final, "+cs+".";
+   explanation="Tower no emite autorización de aterrizaje hasta que Approach confirme la secuencia final simulada.";
   } else if(/\b(vacated|clear of runway|runway clear|off the runway)\b/i.test(msg)){
    station="Ground";frequency="121.900";phase="Taxi In";s.stage="TaxiIn";
    atc=cs+", roger, runway vacated. Taxi to parking via the taxiways and markings shown in your simulator. Monitor Ground on 121.900.";
