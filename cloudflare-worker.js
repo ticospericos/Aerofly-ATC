@@ -112,9 +112,12 @@ function core(message,c,history){
  var station=called||(first?"Clearance":clean(c.station||s.lastStation||"Clearance",24));
  var phase=clean(c.phase||s.phase||"Preflight",24),frequency="",atc="",hint="",explanation="";
  if(emergency){
+  var radioFailure=/\\b(lost comms|radio failure|unable to communicate)\\b/i.test(message);
+  var emergencySquawk=radioFailure?"7600":"7700";
+  s.squawk=emergencySquawk;
   station=called&&called!=="ATIS"?called:"Tower";phase="Emergency";frequency="121.500";
-  atc=cs+", emergency acknowledged. Squawk 7700 if able. State your intentions, persons on board and fuel endurance. Maintain present heading and altitude if able. Emergency frequency 121.500 is available.";
-  hint=cs+", MAYDAY/PAN-PAN, "+ac+", "+clean(message,120)+". Request immediate assistance.";
+  atc=cs+", emergency acknowledged. "+(radioFailure?"Squawk 7600 for radio failure if able. Follow the applicable lost communications procedures and maintain your last assigned route, altitude and clearance.":"Squawk 7700 if able. State your intentions, persons on board and fuel endurance. Maintain present heading and altitude if able.")+" Emergency frequency 121.500 is available.";
+  hint=cs+", "+(radioFailure?"radio failure, squawking 7600":"MAYDAY/PAN-PAN, squawking 7700")+", "+ac+", "+clean(message,120)+". Request immediate assistance.";
   explanation="Declara la emergencia e informa naturaleza, intenciones, personas a bordo y combustible.";
   s.stage="Emergency";
  } else if(station==="ATIS"){
