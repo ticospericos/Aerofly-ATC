@@ -154,7 +154,7 @@ function core(message,c,history){
   }
  } else if(station==="Ground"){
   frequency="121.900";
-  if(s.stage==="ClearedToTaxi"&&!s.clearanceReadbackVerified){
+  if(!s.clearanceReadbackVerified&&s.stage!=="TaxiIn"&&s.stage!=="Parked"){
    station="Clearance";frequency="121.700";phase="Preflight";s.stage="ClearedToTaxi";
    atc=cs+", unable. Clearance readback must be verified before taxi. Contact Clearance Delivery and read back runway "+dr+", initial altitude "+s.initialAltitude+", and squawk "+s.squawk+".";
    hint=cs+", runway "+dr+", initial altitude "+s.initialAltitude+", squawk "+s.squawk+".";
@@ -212,6 +212,11 @@ function core(message,c,history){
    atc=cs+", roger, go-around. Fly runway heading, climb and maintain 3,000 feet. Contact Departure on 124.600.";
    hint=cs+", going around, runway heading, climbing to 3,000 feet, contact Departure 124.600, "+cs+".";
    explanation="Procedimiento simulado de aproximación frustrada. Mantén rumbo de pista y contacta Departure.";
+  } else if(s.stage==="Takeoff"&&/\b(airborne|off the ground|climbing out|positive rate)\b/i.test(msg)){
+   station="Departure";phase="Departure";frequency="124.600";s.stage="Departure";
+   atc=cs+", radar contact. "+s.aircraftProfile.climbProfile+". Climb and maintain "+s.initialAltitude+". When established en route, contact Oakland Center on 127.000.";
+   hint=cs+", airborne, climbing to "+s.initialAltitude+", contact Oakland Center 127.000 when established, "+cs+".";
+   explanation="Handoff simulado a Departure tras el reporte verbal de que la aeronave está airborne.";
   } else if(s.stage==="Landing"&&/\b(landed|touchdown|on the runway|rolling out)\b/i.test(msg)){
    phase="Landing";s.stage="Landing";
    atc=cs+", roger, continue to taxi clear of the runway when able. Contact Ground on 121.900 when clear.";
@@ -232,6 +237,11 @@ function core(message,c,history){
    atc=cs+", roger, runway vacated. Taxi to parking via the taxiways and markings shown in your simulator. Monitor Ground on 121.900.";
    hint=cs+", taxi to parking, "+cs+".";
    explanation="Sigue las calles señalizadas en Aerofly hasta el estacionamiento.";
+  } else if(s.stage!=="HoldingShort"){
+   phase="Holding Short";
+   atc=cs+", hold short runway "+dr+". Report holding short and ready for departure before takeoff clearance.";
+   hint=cs+", holding short runway "+dr+", "+cs+".";
+   explanation="Tower no autoriza el despegue hasta que el piloto confirme que está en posición de espera.";
   } else {
    phase="Takeoff";s.stage="Takeoff";
    atc=cs+", runway "+dr+", cleared for takeoff. Wind "+((s.weather&&s.weather.wind)||"variable")+" . After departure contact Departure on 124.600.";
