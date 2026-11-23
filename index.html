@@ -848,7 +848,15 @@ $("trafficToggle").onclick = () => {
 $("trafficNow").onclick = playTrafficSample;
 
 function normalizeAviationTranscript(text) {
-  const corrections = [
+  let value = String(text || "");
+  const descentContext = ["Departure", "Cruise", "Approach"].includes(phase)
+    || /center|approach/i.test(station);
+  const commonCorrections = [
+    [/\bholding (?:sure|shirt|shorts)\b/gi, "holding short"],
+    [/\bcleared for take off\b/gi, "cleared for takeoff"],
+    [/\bclear for take off\b/gi, "cleared for takeoff"]
+  ];
+  const descentCorrections = [
     [/\bready to send\b/gi, "ready to descend"],
     [/\bready to decent\b/gi, "ready to descend"],
     [/\bready for descend\b/gi, "ready to descend"],
@@ -857,13 +865,12 @@ function normalizeAviationTranscript(text) {
     [/\brequest decent\b/gi, "request descent"],
     [/\brequest to decent\b/gi, "request descent"],
     [/\bready for decent\b/gi, "ready to descend"],
-    [/\brequest the send\b/gi, "request descent"],
-    [/\bholding (?:sure|shirt|shorts)\b/gi, "holding short"],
-    [/\bcleared for take off\b/gi, "cleared for takeoff"],
-    [/\bclear for take off\b/gi, "cleared for takeoff"]
+    [/\brequest the send\b/gi, "request descent"]
   ];
-  let value = String(text || "");
-  for (const [pattern, replacement] of corrections) value = value.replace(pattern, replacement);
+  for (const [pattern, replacement] of commonCorrections) value = value.replace(pattern, replacement);
+  if (descentContext) {
+    for (const [pattern, replacement] of descentCorrections) value = value.replace(pattern, replacement);
+  }
   return value.replace(/\s+/g, " ").trim();
 }
 
