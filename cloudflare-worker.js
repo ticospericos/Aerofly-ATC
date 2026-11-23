@@ -10,6 +10,25 @@ function apt(code){return AIRPORTS.find(a=>a[1]===code)||[code||"Unknown",code||
 function hdg(r){var m=String(r||"").match(/^([0-9]{1,2})/);return m?(Number(m[1])*10)%360:0;}
 function runway(list,wind){if(!list||!list.length)return "";return list.slice().sort((a,b)=>Math.abs(((hdg(a)-wind+540)%360)-180)-Math.abs(((hdg(b)-wind+540)%360)-180))[0];}
 function stateFrom(history,c){if(c.flightState&&typeof c.flightState==="object"&&Object.keys(c.flightState).length)return c.flightState;for(var i=(history||[]).length-1;i>=0;i--){if(history[i].role==="model"){try{var x=JSON.parse(history[i].text);if(x.state)return x.state;}catch(e){}}}return {};}
+function spokenDigits(text){
+ var map={zero:"0",oh:"0",one:"1",two:"2",three:"3",four:"4",five:"5",six:"6",seven:"7",eight:"8",nine:"9",niner:"9"};
+ return String(text||"").toLowerCase().replace(/\b(zero|oh|one|two|three|four|five|six|seven|eight|nine|niner)\b/g,function(x){return map[x];}).replace(/\b(\d)\s+thousand\b/g,function(_,n){return String(Number(n)*1000);}).replace(/,/g,"");
+}
+function readbackCheck(message,s){
+ var n=spokenDigits(message),assigned=s.assignedDepartureRunway||"",result={ok:true,missing:[],errors:[]};
+ var runwayMatch=n.match(/\brunway\s*(\d{1,2})\s*(left|right|center)?\b/);
+ var runwayRead=runwayMatch?runwayMatch[1]+(runwayMatch[2]?runwayMatch[2][0].toUpperCase():""):"";
+ var squawkMatch=n.match(/\bsquawk\s*(\d{4})\b/);
+ var altMatch=n.match(/\b(?:initial altitude|altitude|maintain|climb(?:ing)?(?: and maintain)?)\s*(\d{4,6})\s*(?:feet|ft)?\b|\b(\d{4,6})\s*(?:feet|ft)\b/);
+ var altitudeRead=altMatch?(altMatch[1]||altMatch[2]).replace(/,/g,""):"";
+ if(!runwayRead)result.missing.push("runway "+assigned);
+ else if(runwayRead!==assigned)result.errors.push("runway "+runwayRead+" (assigned "+assigned+")");
+ if(!altitudeRead)result.missing.push("initial altitude "+s.initialAltitude);
+ else if(Number(altitudeRead)!==Number(String(s.initialAltitude||"").replace(/[^0-9]/g,"")))result.errors.push("altitude "+altitudeRead+" feet (assigned "+s.initialAltitude+")");
+ if(!squawkMatch)result.missing.push("squawk "+s.squawk);
+ else if(squawkMatch[1]!==String(s.squawk))result.errors.push("squawk "+squawkMatch[1]+" (assigned "+s.squawk+")");
+ result.ok=!result.missing.length&&!result.errors.length;return result;
+}
 function core(message,c,history){
  var msg=String(message||"").toLowerCase(),from=c.origin||{},to=c.destination||{},dep=apt(from.icao),arr=apt(to.icao);
  var cs=clean(c.callsign||"November Niner Charlie Bravo",80),ac=clean(c.aircraft||"Learjet 45",50),s=stateFrom(history,c);
@@ -17,7 +36,7 @@ function core(message,c,history){
  var called="";
  var calls=[["Clearance",/\b(clearance delivery|clearance)\b/i],["Ground",/\bground\b/i],["Tower",/\btower\b/i],["Departure",/\bdeparture\b/i],["Center",/\b(center)\b/i],["Approach",/\bapproach\b/i],["ATIS",/\b(atis|information)\b/i],["Unicom",/\b(unicom|traffic)\b/i]];
  for(var ci=0;ci<calls.length;ci++){if(calls[ci][1].test(msg)){called=calls[ci][0];break;}}
- var stage=s.stage||"Preflight";
+ var stage=s.stage||"Preflight";\n s.flightId=clean(c.flightId||s.flightId,100);\n s.stateVersion=2;
  if(!called){
   if(stage==="ClearedToTaxi"&&/\b(ready to taxi|request taxi|taxi clearance|taxi)\b/i.test(msg))called="Ground";
   else if((stage==="Taxi"||stage==="HoldingShort")&&/\b(ready for departure|ready for takeoff|request takeoff|ready for take.?off)\b/i.test(msg))called="Tower";
@@ -60,10 +79,24 @@ function core(message,c,history){
   hint="Information "+s.atis.information+" received, "+cs+".";explanation="ATIS ficticio para "+atisApt[0]+", no sincronizado con el clima de Aerofly.";
  } else if(station==="Clearance"){
   phase="Preflight";frequency="121.700";
-  if(s.stage==="ClearedToTaxi"&&!/\b(repeat|say again|say that again|readback incorrect|unable to copy)\b/i.test(msg)){
-   atc=cs+", readback received. Contact Ground on 121.900 when ready to taxi.";
-   hint=cs+", readback received, contacting Ground when ready to taxi.";
-   explanation="La lectura de vuelta fue recibida. Cuando estés listo para iniciar el rodaje, llama a Ground.";
+  if(s.stage==="ClearedToTaxi"&&!/\b(repeat|say again|say that again|unable to copy)\b/i.test(msg)){
+   var check=readbackCheck(message,s);
+   if(check.errors.length){
+    s.readbackStatus="correction-required";s.readbackPending=true;
+    atc=cs+", negative. Check your readback: "+check.errors.join("; ")+". The assigned clearance remains runway "+dr+", initial altitude "+s.initialAltitude+", squawk "+s.squawk+". Say again.";
+    hint=cs+", runway "+dr+", initial altitude "+s.initialAltitude+", squawk "+s.squawk+".";
+    explanation="El readback contiene datos incorrectos. La autorización original sigue vigente; corrige los datos indicados.";
+   } else if(check.missing.length){
+    s.readbackStatus="incomplete";s.readbackPending=true;
+    atc=cs+", say again. Read back runway "+dr+", initial altitude "+s.initialAltitude+", and squawk "+s.squawk+".";
+    hint=cs+", runway "+dr+", initial altitude "+s.initialAltitude+", squawk "+s.squawk+".";
+    explanation="Faltan datos en la lectura de vuelta. Confirma pista, altitud inicial y código transponder.";
+   } else {
+    s.readbackStatus="verified";s.readbackPending=false;s.clearanceReadbackVerified=true;
+    atc=cs+", readback correct. Contact Ground on 121.900 when ready to taxi.";
+    hint=cs+", readback correct, contacting Ground when ready to taxi.";
+    explanation="Readback verificado: pista, altitud inicial y squawk coinciden con la autorización.";
+   }
   } else {
    s.stage="ClearedToTaxi";
    atc=cs+", cleared to "+arr[0]+" airport, "+(c.flightRules||"IFR")+" departure. Runway "+dr+". Initial altitude "+s.initialAltitude+". Expect further clearance after departure. Squawk "+s.squawk+". Advise when ready to taxi.";
@@ -160,7 +193,7 @@ function core(message,c,history){
   atc=cs+", say again. Clearance Delivery.";hint="Clearance Delivery, "+cs+", say again.";
   explanation="No identifiqué la estación llamada. Repite tu llamada inicial.";
  }
- s.phase=phase;s.lastStation=station;s.frequency=frequency;
+ s.phase=phase;s.lastStation=station;s.frequency=frequency;s.updatedAt=new Date().toISOString();
  return {station:station,phase:phase,frequency:frequency,atc:atc,hint:hint,explanation:explanation,state:s,engine:"AEROFLY ATC CORE"};
 }
 export default {async fetch(request,env){
