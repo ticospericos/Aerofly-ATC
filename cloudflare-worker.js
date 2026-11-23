@@ -50,6 +50,10 @@ function trafficAdvisory(s){
  var t=fleet[index];
  return " Simulated traffic advisory: "+t.callsign+", "+t.aircraft+", "+t.position+" runway "+t.runway+".";
 }
+function simulatedRunwayConflict(s){
+ var fleet=Array.isArray(s.simulatedTrafficFleet)?s.simulatedTrafficFleet:[s.simulatedTraffic].filter(Boolean);
+ return fleet.some(function(t){return t&&t.runway===s.assignedDepartureRunway&&/final|base|holding short|departing/i.test(String(t.position||""));});
+}
 function stateFrom(history,c){if(c.flightState&&typeof c.flightState==="object"&&Object.keys(c.flightState).length)return c.flightState;for(var i=(history||[]).length-1;i>=0;i--){if(history[i].role==="model"){try{var x=JSON.parse(history[i].text);if(x.state)return x.state;}catch(e){}}}return {};}
 function aircraftProfile(name,rules){
  var key=String(name||"").toLowerCase(),vfr=String(rules||"IFR").toUpperCase()==="VFR";
@@ -112,7 +116,9 @@ function core(message,c,history){
   s.initialAltitude=s.aircraftProfile.initialAltitude;
   s.assignedCruiseAltitude=s.aircraftProfile.cruiseAltitude;
   s.approachSpeed=s.aircraftProfile.approachSpeed;
-  do{s.squawk=Array.from({length:4},function(){return Math.floor(Math.random()*8);}).join("");}while(["7500","7600","7700"].includes(s.squawk));
+  var squawkSeed=seededNumber((s.flightId||[from.icao,to.icao,ac].join("-"))+":squawk",4096);
+  s.squawk=Array.from({length:4},function(_,i){return String(Math.floor(squawkSeed/Math.pow(8,3-i))%8);}).join("");
+  if(["7500","7600","7700"].includes(s.squawk))s.squawk="4321";
   s.stage="Preflight";
   s.initialized=true;
  }
@@ -132,7 +138,15 @@ function core(message,c,history){
  var phase=clean(c.phase||s.phase||"Preflight",24),frequency="",atc="",hint="",explanation="";
  var clearanceReadbackPending=s.stage==="ClearedToTaxi"&&!s.clearanceReadbackVerified;
  if(clearanceReadbackPending&&!emergency&&station!=="Clearance"&&station!=="ATIS")station="Clearance";
- if(emergency){
+ var previousTransmissions=Number(s.flightRecorder&&s.flightRecorder.transmissions)||0;
+ var radioBusy=!emergency&&!clearanceReadbackPending&&["Center","Approach"].includes(station)&&previousTransmissions>0&&previousTransmissions%5===3&&/request|direct|descent|climb|approach/i.test(msg);
+ if(radioBusy){
+  phase=station==="Center"?"Cruise":"Approach";frequency=station==="Center"?"127.000":"124.000";
+  atc=cs+", standby, frequency is busy. Maintain your last assigned altitude and route. I will come back to you shortly.";
+  hint=cs+", standing by, maintaining last assigned altitude and route.";
+  explanation="Congestión de frecuencia simulada. Conserva la última autorización; no se ha emitido una nueva instrucción.";
+  s.radioCongestion={active:true,simulated:true,holdCount:(Number(s.radioCongestion&&s.radioCongestion.holdCount)||0)+1};
+ } else if(emergency){
   var radioFailure=/(lost comms|lost communication|lost communications|radio failure|radio out|unable to communicate|unable to transmit|unable to receive|two.?way radio failure|communications failure|comms failure)/i.test(message);
   var emergencySquawk=radioFailure?"7600":"7700";
   s.squawk=emergencySquawk;
@@ -271,8 +285,14 @@ function core(message,c,history){
    atc=cs+", hold short runway "+dr+". Report holding short and ready for departure before takeoff clearance.";
    hint=cs+", holding short runway "+dr+", "+cs+".";
    explanation="Tower no autoriza el despegue hasta que el piloto confirme que está en posición de espera.";
+  } else if(!s.trafficHoldIssued&&simulatedRunwayConflict(s)){
+   phase="Holding Short";s.stage="HoldingShort";s.trafficHoldIssued=true;
+   var conflictingTraffic=(s.simulatedTrafficFleet||[]).find(function(t){return t&&t.runway===dr&&/final|base|holding short|departing/i.test(String(t.position||""));});
+   atc=cs+", hold short runway "+dr+". The runway is occupied by simulated traffic, "+(conflictingTraffic?conflictingTraffic.callsign:"traffic")+". I will advise when the runway is available.";
+   hint=cs+", holding short runway "+dr+", waiting for traffic, "+cs+".";
+   explanation="Separación de tráfico ficticio: la pista está ocupada en el escenario simulado. Espera una nueva autorización.";
   } else {
-   phase="Takeoff";s.stage="Takeoff";
+   phase="Takeoff";s.stage="Takeoff";s.trafficHoldIssued=false;
    atc=cs+", runway "+dr+", cleared for takeoff. Wind "+((s.weather&&s.weather.wind)||"variable")+" . After departure contact Departure on 124.600.";
    hint=cs+", cleared for takeoff runway "+dr+", contact Departure after departure, "+cs+".";
    explanation="Autorización de despegue simulada. Después del despegue, llama a Departure.";
@@ -450,6 +470,12 @@ function core(message,c,history){
 // Persistent simulator-side lifecycle and compact flight recorder. Telemetry is not connected.
 var previousLifecycle=s.flightLifecycle||{};
 var previousPhase=previousLifecycle.phase||"Preflight";
+var priorReadbackErrors=Number(s.flightRecorder&&s.flightRecorder.readbackErrors)||0;
+var adaptiveMode=priorReadbackErrors>=3?"COACHING":priorReadbackErrors>0?"CLARIFY":"STANDARD";
+s.adaptiveATC={mode:adaptiveMode,readbackErrors:priorReadbackErrors,simulated:true};
+if(adaptiveMode==="COACHING"&&readbackEvaluated&&s.lastReadback&&s.lastReadback.ok===false){
+ explanation+=" El controlador adapta la instrucción: confirma cada dato por separado y vuelve a leer la autorización completa.";
+}
 var lifecycle={
  phase:phase,
  station:station,
@@ -459,7 +485,8 @@ var lifecycle={
  updatedAt:s.updatedAt,
  telemetry:"NOT_CONNECTED",
  groundOperation:previousLifecycle.groundOperation||"NOT_STARTED",
- approachStatus:previousLifecycle.approachStatus||"NOT_STARTED"
+ approachStatus:previousLifecycle.approachStatus||"NOT_STARTED",
+ recovery:{stateSource:c.flightState&&Object.keys(c.flightState).length?"CLIENT_SESSION":"CONVERSATION_HISTORY",stateVersion:s.stateVersion||2,telemetry:"NOT_CONNECTED"}
 };
 if(/taxi|pushback/i.test(msg))lifecycle.groundOperation="TAXI_OR_PUSHBACK";
 if(/holding short/i.test(msg))lifecycle.groundOperation="HOLDING_SHORT";
@@ -477,7 +504,7 @@ s.flightRecorder.events=Array.isArray(s.flightRecorder.events)?s.flightRecorder.
 s.flightRecorder.events.push({phase:phase,station:station,pilotCall:String(message||"").slice(0,120),atc:String(atc||"").slice(0,220),timestamp:s.updatedAt});
 s.flightRecorder.events=s.flightRecorder.events.slice(-20);
 
- return {station:station,phase:phase,frequency:frequency,atc:atc,hint:hint,explanation:explanation,state:s,engine:"AEROFLY ATC CORE"};
+ return {station:station,phase:phase,frequency:frequency,atc:atc,hint:hint,explanation:explanation,state:s,engine:"AEROFLY ATC CORE",recovery:{available:true,stateVersion:s.stateVersion||2,source:lifecycle.recovery.stateSource},radio:{congestionSimulated:true,trafficSimulated:true}};
 }
 export default {async fetch(request,env){
  var url=new URL(request.url),origin=request.headers.get("Origin")||"";
