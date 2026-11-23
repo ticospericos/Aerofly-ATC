@@ -9,6 +9,13 @@ This branch adds the server-side receiving contract for a future iOS bridge. It 
 - A compatible receiver must implement the FSWidgets connection/protocol. A generic UDP listener is not proof of a successful connection.
 - Safari cannot directly bind a UDP socket. A native iOS bridge (or a compatible existing app that can forward data) is required.
 
+
+## Important Aerofly FS Global distinction
+
+A community report from the Aerofly forum confirms that the separate configurable UDP broadcast option available in Aerofly FS 4 is **not present in Aerofly FS Global on iPad/iOS**. Therefore, do not assume the ForeFlight `XGPS` broadcast stream or port 49002 is available in this mobile edition. The supported path documented for FS Global is the FSWidgets connection on port 58585.
+
+This means the generic UDP Receiver app cannot be expected to show packets just by listening on local port 58585. The next engineering task is to obtain or establish the FSWidgets client handshake/wire format. Until that is known, do not send arbitrary test strings to the simulator and do not claim the bridge works.
+
 ## Worker endpoints added
 
 - `POST /telemetry`: accepts a normalized JSON telemetry sample.
