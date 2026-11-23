@@ -4,9 +4,42 @@ const AIRPORTS=[
 ["Monterey Regional","KMRY",["28L","28R","01L","01R"]],["Salinas Municipal","KSNS",["31","26","08","13"]],["Hollister Municipal","KCVH",["31","24","13","06"]],["Watsonville Municipal","KWVI",["20","06","02","27"]],["San Martin Airport","KE16",["14","32"]],["Reid-Hillview","KRHV",["13L","13R","31L","31R"]],["San José Mineta International","KSJC",["30L","30R","12L","12R"]],["Modesto City-County","KMOD",["28L","28R","10L","10R"]],["Moffett Federal Airfield","KNUQ",["32L","32R","14L","14R"]],["Palo Alto","KPAO",["13","31"]],["Tracy Municipal","KTCY",["30","26","12","08"]],["Stockton Metropolitan","KSCK",["29L","29R","11L","11R"]],["Livermore Municipal","KLVK",["25L","25R","07L","07R"]],["San Carlos","KSQL",["12","30"]],["Half Moon Bay","KHAF",["12","30"]],["San Francisco International","KSFO",["01L","01R","28L","28R","10L","10R","19L","19R"]],["Hayward Executive","KHWD",["28L","28R","10L","10R"]],["Oakland International","KOAK",["30","12","28L","28R","10L","10R","33","15"]],["Byron Airport","KC83",["30","23","12","05"]],["Buchanan Field","KCCR",["01L","01R","32L","32R","19L","19R","14L","14R"]],["Lodi Airport","K1O3",["30","26","12","08"]],["Rio Vista Municipal","KO88",["33","25","07","15"]],["Gnoss Field (Novato)","KDVO",["13","31"]],["Petaluma Municipal","KO69",["11","29"]],["Napa County","KAPC",["06","01L","01R","24","19L","19R"]],["Charles M. Schulz Sonoma County","KSTS",["02","32","20","14"]],["Angwin-Parrett Field","K203",["16","34"]],["Travis Air Force Base","KSUU",["03L","03R","21R","32","21-2","21L"]],["Nut Tree","KVCB",["02","20"]],["Yolo County Airport","KDWA",["16","34"]],["University Airport","KEDU",["35","17"]],["Sacramento Executive","KSAC",["02","30","20","12"]],["Sacramento Mather","KMHR",["04L","04R","22L","22R"]],["Sacramento International","KSMF",["35L","35R","17L","17R"]]
 ];
 const PROMPT="You are AEROFLY-ATC, an immersive flight-simulation ATC companion. Speak concise natural American aviation radio English, professional and station-appropriate. Never say this is a simulation during normal radio calls. The pilot flies; you have no Aerofly telemetry or real position. All weather, clearances, frequencies and traffic are fictional. Never claim real-world authorization. Never invent taxiway names or verified routes. Use only supplied airport runway data and assign runways yourself. Maintain continuity from history and state. Recognize MAYDAY, PAN-PAN, fire, smoke, engine failure, medical emergency and bird strike immediately. Return only JSON: station, phase, frequency, atc, hint, explanation, state. State includes assignedDepartureRunway, assignedArrivalRunway, initialAltitude, heading, squawk, nextStation, atis. Provide exact concise readback hints. ATIS is fictional and not synchronized with Aerofly.";
-function headers(){return {"Access-Control-Allow-Origin":ALLOWED_ORIGIN,"Access-Control-Allow-Methods":"POST, GET, OPTIONS","Access-Control-Allow-Headers":"Content-Type","Vary":"Origin","Content-Type":"application/json; charset=utf-8"};}
+function headers(){return {"Access-Control-Allow-Origin":ALLOWED_ORIGIN,"Access-Control-Allow-Methods":"POST, GET, OPTIONS","Access-Control-Allow-Headers":"Content-Type, Authorization","Vary":"Origin","Content-Type":"application/json; charset=utf-8"};}
 function out(data,status){return new Response(JSON.stringify(data),{status:status||200,headers:headers()});}
 function clean(v,n){return String(v==null?"":v).trim().slice(0,n||200);}
+
+function validTelemetry(t){
+ if(!t||typeof t!=="object"||Array.isArray(t))return false;
+ var numeric=["latitude","longitude","altitudeFt","groundSpeedKts","indicatedAirspeedKts","headingDeg","verticalSpeedFpm"];
+ for(var k of numeric){if(t[k]!==undefined&&t[k]!==null&&(typeof t[k]!=="number"||!Number.isFinite(t[k])))return false;}
+ if(t.latitude!==undefined&&(t.latitude < -90||t.latitude>90))return false;
+ if(t.longitude!==undefined&&(t.longitude < -180||t.longitude>180))return false;
+ if(t.headingDeg!==undefined&&(t.headingDeg<0||t.headingDeg>=360))return false;
+ if(t.onGround!==undefined&&typeof t.onGround!=="boolean")return false;
+ return numeric.some(k=>typeof t[k]==="number")||typeof t.onGround==="boolean";
+}
+function authorizedBridge(request,env){
+ var expected=env.ATC_TELEMETRY_TOKEN;
+ if(!expected)return false;
+ return request.headers.get("Authorization")==="Bearer "+expected;
+}
+async function handleTelemetry(request,url,env){
+ if(!authorizedBridge(request,env))return out({error:"Telemetry bridge is not paired"},401);
+ if(!env.ATC_TELEMETRY)return out({error:"Telemetry storage is not configured"},503);
+ if(request.method==="POST"&&url.pathname==="/telemetry"){
+  var t=await request.json();
+  if(!validTelemetry(t))return out({error:"Invalid telemetry payload"},400);
+  var record={receivedAt:new Date().toISOString(),data:t};
+  await env.ATC_TELEMETRY.put("latest",JSON.stringify(record),{expirationTtl:120});
+  return out({ok:true,receivedAt:record.receivedAt});
+ }
+ if(request.method==="GET"&&url.pathname==="/telemetry/latest"){
+  var saved=await env.ATC_TELEMETRY.get("latest");
+  if(!saved)return out({ok:true,available:false});
+  return out({ok:true,available:true,telemetry:JSON.parse(saved)});
+ }
+ return out({error:"Use POST /telemetry or GET /telemetry/latest"},404);
+}
 function apt(code){return AIRPORTS.find(a=>a[1]===code)||[code||"Unknown",code||"----",[]];}
 function hdg(r){var m=String(r||"").match(/^([0-9]{1,2})/);return m?(Number(m[1])*10)%360:0;}
 function runway(list,wind){if(!list||!list.length)return "";return list.slice().sort((a,b)=>Math.abs(((hdg(a)-wind+540)%360)-180)-Math.abs(((hdg(b)-wind+540)%360)-180))[0];}
@@ -43,7 +76,7 @@ export default {async fetch(request,env){
  var url=new URL(request.url),origin=request.headers.get("Origin")||"";
  if(request.method==="OPTIONS")return new Response(null,{headers:headers()});
  if(request.method==="GET"&&url.pathname==="/health")return out({ok:true,service:"AEROFLY-ATC Brain",engines:["Gemini","AEROFLY ATC CORE"],model:MODEL});
- if(request.method!=="POST"||url.pathname!=="/atc")return out({error:"Use POST /atc or GET /health"},404);
+ if(url.pathname==="/telemetry"||url.pathname==="/telemetry/latest")return handleTelemetry(request,url,env);\n if(request.method!=="POST"||url.pathname!=="/atc")return out({error:"Use POST /atc or GET /health"},404);
  if(origin&&origin!==ALLOWED_ORIGIN)return out({error:"Origin not allowed"},403);
  try{var body=await request.json(),message=clean(body.message,3000),context=body.context||{},history=Array.isArray(body.history)?body.history.slice(-8):[];if(!message)return out({error:"Message is required"},400);
  if(env.GEMINI_API_KEY){try{return out(await gemini(env,message,context,history));}catch(e){var fallback=core(message,context,history);fallback.fallbackReason=clean(e.message,180);return out(fallback);}}
