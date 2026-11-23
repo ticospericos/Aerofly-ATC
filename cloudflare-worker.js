@@ -154,7 +154,12 @@ function core(message,c,history){
   }
  } else if(station==="Ground"){
   frequency="121.900";
-  if(/\b(request pushback|pushback and start|request start|engine start|start-up|startup)\b/i.test(msg)&&s.stage!=="HoldingShort"&&s.stage!=="Takeoff"&&s.stage!=="Landing"&&s.stage!=="TaxiIn"&&s.stage!=="Parked"){
+  if(s.stage==="ClearedToTaxi"&&!s.clearanceReadbackVerified){
+   station="Clearance";frequency="121.700";phase="Preflight";s.stage="ClearedToTaxi";
+   atc=cs+", unable. Clearance readback must be verified before taxi. Contact Clearance Delivery and read back runway "+dr+", initial altitude "+s.initialAltitude+", and squawk "+s.squawk+".";
+   hint=cs+", runway "+dr+", initial altitude "+s.initialAltitude+", squawk "+s.squawk+".";
+   explanation="No se autoriza el avance a Ground hasta verificar correctamente la lectura de vuelta de la autorización.";
+  } else if(/\b(request pushback|pushback and start|request start|engine start|start-up|startup)\b/i.test(msg)&&s.stage!=="HoldingShort"&&s.stage!=="Takeoff"&&s.stage!=="Landing"&&s.stage!=="TaxiIn"&&s.stage!=="Parked"){
    phase="Ground Operations";s.stage="Pushback";
    atc=cs+", pushback and engine start approved. Start at your discretion and advise when pushback is complete. Use the pushback guidance in your simulator.";
    hint=cs+", pushback and engine start approved, will advise when pushback is complete, "+cs+".";
