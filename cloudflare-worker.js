@@ -19,6 +19,20 @@ function makeWeather(seed){
  var altimeter=(29.70+seededNumber(seed+":altimeter",61)/100).toFixed(2);
  return {windDirection:windDirection,windSpeed:windSpeed,wind:windDirection+" at "+windSpeed+" knots",visibility:visibilityOptions[seededNumber(seed+":visibility",visibilityOptions.length)],conditions:conditions[seededNumber(seed+":conditions",conditions.length)],altimeter:altimeter,information:"Alpha",simulated:true};
 }
+function makeTraffic(seed,runway){
+ var options=[
+  {callsign:"Cessna Seven Two Lima",aircraft:"Cessna 172",position:"left downwind"},
+  {callsign:"Citation Eight Romeo",aircraft:"Citation CJ4",position:"five-mile final"},
+  {callsign:"Piper Six Five Kilo",aircraft:"Piper PA-28",position:"right downwind"},
+  {callsign:"Skyhawk Three One Papa",aircraft:"Cessna 172",position:"entering the pattern"}
+ ];
+ var item=options[seededNumber(seed+":traffic",options.length)];
+ return {callsign:item.callsign,aircraft:item.aircraft,position:item.position,runway:runway,simulated:true};
+}
+function trafficAdvisory(s){
+ var t=s.simulatedTraffic;
+ return t?" Simulated traffic advisory: "+t.callsign+", "+t.aircraft+", "+t.position+" runway "+t.runway+".":"";
+}
 function stateFrom(history,c){if(c.flightState&&typeof c.flightState==="object"&&Object.keys(c.flightState).length)return c.flightState;for(var i=(history||[]).length-1;i>=0;i--){if(history[i].role==="model"){try{var x=JSON.parse(history[i].text);if(x.state)return x.state;}catch(e){}}}return {};}
 function aircraftProfile(name,rules){
  var key=String(name||"").toLowerCase(),vfr=String(rules||"IFR").toUpperCase()==="VFR";
@@ -50,9 +64,9 @@ function readbackCheck(message,s){
 function core(message,c,history){
  var msg=String(message||"").toLowerCase(),from=c.origin||{},to=c.destination||{},dep=apt(from.icao),arr=apt(to.icao);
  var cs=clean(c.callsign||"November Niner Charlie Bravo",80),ac=clean(c.aircraft||"Learjet 45",50),s=stateFrom(history,c);
- var emergency=/\b(mayday|pan.?pan|engine fail|engine out|fire|smoke|medical|bird strike|emergency)\b/i.test(message);
+ var emergency=/\b(mayday|pan.?pan|engine fail|engine out|fire|smoke|medical|bird strike|emergency|lost comms|radio failure|unable to communicate|wind shear|microburst|severe turbulence|icing)\b/i.test(message);
  var called="";
- var calls=[["Clearance",/\b(clearance delivery|clearance)\b/i],["Ground",/\bground\b/i],["Tower",/\btower\b/i],["Departure",/\bdeparture\b/i],["Center",/\b(center)\b/i],["Approach",/\bapproach\b/i],["ATIS",/\b(atis|information)\b/i],["Unicom",/\b(unicom|traffic)\b/i]];
+ var calls=[["Clearance",/\b(clearance delivery|clearance)\b/i],["Ground",/\bground\b/i],["Tower",/\btower\b/i],["Departure",/\bdeparture\b/i],["Center",/\b(center)\b/i],["Approach",/\bapproach\b/i],["ATIS",/\b(atis|information|weather report|request weather)\b/i],["Unicom",/\b(unicom|traffic)\b/i]];
  for(var ci=0;ci<calls.length;ci++){if(calls[ci][1].test(msg)){called=calls[ci][0];break;}}
  var stage=s.stage||"Preflight";
  s.flightId=clean(c.flightId||s.flightId,100);
@@ -226,7 +240,25 @@ function core(message,c,history){
   explanation="Confirma el ascenso y contacta Center cuando estés establecido en ruta.";
  } else if(station==="Center"){
   frequency="127.000";
-  var directMatch=msg.match(/\b(?:request direct to|direct to|proceed direct to|request direct|proceed direct)\s+(?:waypoint\s+)?([a-z0-9]{2,8})\b/i);
+  var diversionMatch=msg.match(/\b(?:divert(?:ing)? to|alternate(?: airport)?\s+)([a-z0-9]{3,4})\b/i);
+  if(/\b(request diversion|divert due to weather|weather diversion|request alternate)\b/i.test(msg)&&!diversionMatch){
+   s.diversionRequested=true;
+   atc=cs+", weather deviation acknowledged. State your requested alternate airport and fuel endurance. Maintain present altitude and advise if conditions worsen.";
+   hint=cs+", request weather diversion, alternate airport and fuel endurance.";
+   explanation="La desviación meteorológica es simulada. Confirma el aeropuerto alterno y combustible; consulta las condiciones en Aerofly.";
+  }else if(diversionMatch){
+   var alternateCode=diversionMatch[1].toUpperCase(),alternateAirport=apt(alternateCode);
+   if(alternateAirport[0]==="Unknown"){
+    atc=cs+", alternate "+alternateCode+" is not in the current airport directory. Confirm the ICAO code or select another listed airport.";
+    hint=cs+", alternate airport "+alternateCode+", say again.";
+    explanation="El aeropuerto alterno no está en el directorio local.";
+   }else{
+    s.alternateAirport=alternateCode;s.diversionRequested=false;
+    atc=cs+", "+alternateAirport[0] accepted as your simulated alternate. Advise when ready to proceed direct, and confirm fuel endurance.";
+    hint=cs+", diverting to "+alternateAirport[0]+", "+cs+".";
+    explanation="Aeropuerto alterno guardado en la memoria de vuelo. La ruta no se carga automáticamente en Aerofly.";
+   }
+  }else if(directMatch=msg.match(/\b(?:request direct to|direct to|proceed direct to|request direct|proceed direct)\s+(?:waypoint\s+)?([a-z0-9]{2,8})\b/i)){
   var passedMatch=msg.match(/\b(?:over|abeam|passed)\s+(?:waypoint\s+)?([a-z0-9]{2,8})\b/i);
   if(directMatch){
    var directFix=directMatch[1].toUpperCase(),directIndex=s.routeWaypoints.indexOf(directFix);
