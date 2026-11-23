@@ -25,6 +25,7 @@ function core(message,c,history){
   else if(stage==="Takeoff"&&/\b(airborne|passing|climbing|off the ground|just departed)\b/i.test(msg))called="Departure";
   else if(stage==="Departure"&&/\b(established en.?route|level at|leveling at|cruise altitude|contact center|center)\b/i.test(msg))called="Center";
   else if(stage==="Cruise"&&/\b(request descent|ready to descend|descending|inbound|request approach|approach)\b/i.test(msg))called="Approach";
+  else if(stage==="Approach"&&/\b(go.?around|going around|missed approach)\b/i.test(msg))called="Tower";
   else if(stage==="Approach"&&/\b(established on final|on final|final approach|visual|runway in sight)\b/i.test(msg))called="Tower";
   else if(stage==="Landing"&&/\b(vacated|clear of runway|runway clear|off the runway)\b/i.test(msg))called="Ground";
   else if(stage==="TaxiIn"&&/\b(parked|at parking|at the gate|shut down|shutdown)\b/i.test(msg))called="Ground";
@@ -98,7 +99,7 @@ function core(message,c,history){
  } else if(station==="Tower"){
   frequency="118.300";
   if(/\b(go.?around|going around|missed approach)\b/i.test(msg)){
-   phase="Go-Around";s.stage="Departure";
+   phase="Go-Around";s.stage="Departure";s.initialAltitude="3,000 feet";
    atc=cs+", roger, go-around. Fly runway heading, climb and maintain 3,000 feet. Contact Departure on 124.600.";
    hint=cs+", going around, runway heading, climbing to 3,000 feet, contact Departure 124.600, "+cs+".";
    explanation="Procedimiento simulado de aproximación frustrada. Mantén rumbo de pista y contacta Departure.";
