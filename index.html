@@ -863,68 +863,120 @@ $("clear").onclick = () => {
 };
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let micWanted = false;
+let micRestartTimer = null;
+let micRetryCount = 0;
+let micFinalText = "";
+let micLastChunk = "";
+let micLastChunkAt = 0;
+let micSessionId = 0;
 
-$("micButton").onclick = () => {
-  if (!SR) {
-    $("micStatus").textContent = "VOICE RECOGNITION UNAVAILABLE";
-    log(
-      "MICROPHONE",
-      "Speech recognition is not available in this browser. You can type your transmissions. ATC voice playback may still work."
-    );
-    return;
-  }
-
-  if (recognizing && recognition) {
-    recognition.stop();
-    return;
-  }
-
+function normalizeAviationSpeech(value) {
+  return String(value || "")
+    .replace(/\b(runway)\s+(zero|oh)\s+(\d)\s+(left|right|center)\b/gi, (_,r,z,n,side) => r+" "+(z==="zero"||z==="oh"?"0":"")+n+side[0].toUpperCase())
+    .replace(/\b(runway)\s+(one|two|three|four|five|six|seven|eight|nine)\s+(left|right|center)\b/gi, (_,r,n,side) => r+" "+({one:"1",two:"2",three:"3",four:"4",five:"5",six:"6",seven:"7",eight:"8",nine:"9"}[n.toLowerCase()])+side[0].toUpperCase())
+    .replace(/\s+/g," ").trim();
+}
+function recognitionStatus(message) { $("micStatus").textContent = message; }
+function stopRecognition(release=true) {
+  micWanted = false;
+  if (micRestartTimer) clearTimeout(micRestartTimer);
+  micRestartTimer = null;
+  if (release && recognition) { try { recognition.stop(); } catch (_) {} }
+  recognition = null;
+  recognizing = false;
+  $("micButton").textContent = "🎙 Start Microphone";
+}
+function startRecognitionSession() {
+  if (!SR || !micWanted || recognizing) return;
+  const sessionId = ++micSessionId;
   try {
     recognition = new SR();
-    recognition.lang = "en-US";
-    recognition.continuous = false;
-    recognition.interimResults = true;
-
-    recognition.onstart = () => {
-      recognizing = true;
-      $("micStatus").textContent = "LISTENING...";
+    const current = recognition;
+    current.lang = "en-US";
+    current.continuous = true;
+    current.interimResults = true;
+    current.maxAlternatives = 5;
+    current.onstart = () => {
+      if (sessionId !== micSessionId) return;
+      recognizing = true; micRetryCount = 0;
+      recognitionStatus("LISTENING · ENGLISH (US)");
       $("micButton").textContent = "■ Stop Microphone";
     };
-
-    recognition.onresult = event => {
-      let result = "";
-
+    current.onresult = event => {
+      if (sessionId !== micSessionId) return;
+      let interim = "";
+      const finals = [];
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        result += event.results[i][0].transcript;
+        const result = event.results[i];
+        let best = result[0];
+        for (let j = 1; j < result.length; j++) {
+          const candidate = result[j];
+          const a = (candidate.transcript || "").toLowerCase();
+          const b = (best.transcript || "").toLowerCase();
+          const aviationTerms = /\b(runway|cleared|squawk|altitude|heading|climb|descend|taxi|holding short|final|approach|tower|ground|departure|center|mayday|pan pan)\b/g;
+          const score = value => (value.match(aviationTerms) || []).length * 5 + Math.min(value.length,120) / 30;
+          if (score(a) > score(b) || (score(a) === score(b) && (candidate.confidence || 0) > (best.confidence || 0))) best = candidate;
+        }
+        const phrase = (best.transcript || "").trim();
+        if (!phrase) continue;
+        if (result.isFinal) finals.push(phrase); else interim += (interim ? " " : "") + phrase;
       }
-
-      $("transcript").value = result;
+      const freshFinal = finals.join(" ").trim();
+      if (freshFinal) {
+        const normalizedChunk = freshFinal.toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+        const now = Date.now();
+        if (normalizedChunk && !(normalizedChunk === micLastChunk && now - micLastChunkAt < 2500)) {
+          micFinalText = [micFinalText, freshFinal].filter(Boolean).join(" ").trim();
+          micLastChunk = normalizedChunk; micLastChunkAt = now;
+        }
+      }
+      const combined = [recognitionBaseText, micFinalText, interim].filter(Boolean).join(" ").replace(/\s+/g," ").trim();
+      $("transcript").value = normalizeAviationSpeech(combined);
+      if (freshFinal) recognitionStatus("VOICE CAPTURED · REVIEW BEFORE TRANSMIT");
     };
-
-    recognition.onerror = event => {
-      $("micStatus").textContent = "MIC ERROR: " + event.error;
-
-      log(
-        "MIC ERROR",
-        event.error + ". Check browser microphone permission and try again."
-      );
-    };
-
-    recognition.onend = () => {
-      recognizing = false;
-      $("micButton").textContent = "🎙 Start Microphone";
-
-      if ($("micStatus").textContent === "LISTENING...") {
-        $("micStatus").textContent = "MIC READY";
+    current.onnomatch = () => recognitionStatus("NO CLEAR PHRASE · SPEAK AGAIN");
+    current.onerror = event => {
+      if (sessionId !== micSessionId) return;
+      const err = event.error || "unknown";
+      const messages = {"no-speech":"NO SPEECH DETECTED · KEEP TALKING","audio-capture":"MICROPHONE NOT FOUND","not-allowed":"MICROPHONE PERMISSION DENIED","service-not-allowed":"VOICE SERVICE BLOCKED","network":"VOICE NETWORK ERROR · RETRYING","aborted":"MICROPHONE STOPPED"};
+      recognitionStatus(messages[err] || ("MIC ERROR · " + err.toUpperCase()));
+      if (["not-allowed","service-not-allowed","audio-capture"].includes(err)) {
+        stopRecognition(false);
+        log("MICROPHONE", messages[err] + ". Check browser permissions and device microphone.");
       }
     };
-
-    recognition.start();
-
+    current.onend = () => {
+      if (sessionId !== micSessionId) return;
+      recognizing = false; recognition = null;
+      if (!micWanted) {
+        $("micButton").textContent = "🎙 Start Microphone";
+        if (!$("micStatus").textContent.includes("PERMISSION") && !$("micStatus").textContent.includes("NOT FOUND")) recognitionStatus("MIC READY");
+        return;
+      }
+      micRetryCount = Math.min(micRetryCount + 1, 5);
+      const delay = Math.min(700 * Math.pow(2,micRetryCount - 1),7000);
+      recognitionStatus("RECONNECTING MICROPHONE…");
+      micRestartTimer = setTimeout(() => { micRestartTimer = null; if (micWanted) startRecognitionSession(); },delay);
+    };
+    current.start();
   } catch (error) {
-    $("micStatus").textContent = "MIC COULD NOT START";
+    recognizing = false; recognition = null;
+    recognitionStatus("MIC COULD NOT START");
     log("MIC ERROR",String(error));
+    if (micWanted) micRestartTimer = setTimeout(startRecognitionSession,Math.min(1000*Math.pow(2,micRetryCount++),8000));
   }
+}
+$("micButton").onclick = () => {
+  if (!SR) {
+    recognitionStatus("VOICE RECOGNITION UNAVAILABLE");
+    log("MICROPHONE","This browser does not expose SpeechRecognition. Use typed radio transmissions or a supported browser.");
+    return;
+  }
+  if (micWanted) { stopRecognition(true); recognitionStatus("MIC READY"); return; }
+  micWanted = true; micRetryCount = 0; micFinalText = ""; micLastChunk = "";
+  recognitionBaseText = $("transcript").value.trim();
+  startRecognitionSession();
 };
 
 $("airportSearch").addEventListener("input",updateDirectory);
