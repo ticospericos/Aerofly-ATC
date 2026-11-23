@@ -339,6 +339,8 @@ button:disabled { opacity:.45; }
       AEROFLY-ATC online. Select your airports and controller to begin.
     </p>
     <button id="speakAtc">▶ Play ATC Voice</button>
+    <label for="atcVoice">ATC voice · English</label>
+    <select id="atcVoice"><option value="">System default</option></select>
   </div>
 
   <label for="transcript">Your radio transmission</label>
@@ -493,18 +495,33 @@ function log(tag,text,kind="") {
   $("log").prepend(entry);
 }
 
+function loadAtcVoices() {
+  if (!("speechSynthesis" in window)) return;
+  const select = $("atcVoice");
+  const current = select.value;
+  const voices = window.speechSynthesis.getVoices().filter(v => /^en(-|_)/i.test(v.lang));
+  select.innerHTML = "";
+  select.add(new Option("System default", ""));
+  voices.forEach(v => select.add(new Option(`${v.name} · ${v.lang}`, v.name)));
+  if ([...select.options].some(o => o.value === current)) select.value = current;
+  else if (!current) {
+    const preferred = voices.find(v => /Samantha|Ava|Evan|Daniel|Google US English|Microsoft.*(Jenny|Guy|Aria)/i.test(v.name));
+    if (preferred) select.value = preferred.name;
+  }
+}
+
 function speak(text) {
   if (!("speechSynthesis" in window)) {
     log("VOICE","Speech playback is not supported by this browser.");
     return;
   }
-
   window.speechSynthesis.cancel();
-
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = "en-US";
-  utterance.rate = 0.92;
-
+  utterance.rate = 0.94;
+  const selected = $("atcVoice").value;
+  const voices = window.speechSynthesis.getVoices();
+  utterance.voice = voices.find(v => v.name === selected) || voices.find(v => /^en-US/i.test(v.lang)) || null;
   window.speechSynthesis.speak(utterance);
 }
 
@@ -657,12 +674,20 @@ $("send").onclick = async () => {
   };
 
   try {
-    const response = await fetch(ATC_API, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, context, history: conversationHistory.slice(-8) })
-    });
-    const data = await response.json();
+    const controller = new AbortController();
+    const requestTimer = setTimeout(() => controller.abort(), 20000);
+    let response, raw, data;
+    try {
+      response = await fetch(ATC_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message, context, history: conversationHistory.slice(-8) }),
+        signal: controller.signal
+      });
+      raw = await response.text();
+      try { data = JSON.parse(raw); }
+      catch (_) { throw new Error("ATC server returned an invalid response. Please transmit again."); }
+    } finally { clearTimeout(requestTimer); }
     if (!response.ok) throw new Error(data.details || data.error || "ATC service returned HTTP " + response.status);
     if (!data.atc || !data.hint) throw new Error("ATC response was incomplete. Please transmit again.");
 
@@ -694,8 +719,9 @@ $("send").onclick = async () => {
     $("micStatus").textContent = data.engine === "AEROFLY ATC CORE" ? "ATC · CORE BACKUP" : "ATC · GEMINI";
     if (data.fallbackReason) log("BACKUP ENGINE", "Gemini unavailable; AEROFLY ATC CORE took over. " + data.fallbackReason);
   } catch (error) {
-    log("CONNECTION ERROR", error.message);
-    $("atcText").textContent = "Unable to reach AEROFLY-ATC. Check your connection and transmit again.";
+    const messageText = error.name === "AbortError" ? "ATC response timed out. Please transmit again." : error.message;
+    log("CONNECTION ERROR", messageText);
+    $("atcText").textContent = "AEROFLY-ATC did not respond. Please transmit again.";
     $("micStatus").textContent = "ATC CONNECTION ERROR";
   } finally {
     $("send").disabled = false;
@@ -775,6 +801,8 @@ $("micButton").onclick = () => {
 $("airportSearch").addEventListener("input",updateDirectory);
 
 updateRunwayOptions();
+loadAtcVoices();
+if ("speechSynthesis" in window) window.speechSynthesis.onvoiceschanged = loadAtcVoices;
 $("stationLabel").textContent = "CLEARANCE DELIVERY";
 hint();
 updateDirectory();
