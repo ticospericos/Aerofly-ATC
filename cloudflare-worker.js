@@ -193,7 +193,7 @@ function core(message,c,history){
    atc=cs+", roger, continue to taxi clear of the runway when able. Contact Ground on 121.900 when clear.";
    hint=cs+", continuing rollout, will contact Ground when clear, "+cs+".";
    explanation="Continúa la carrera de aterrizaje y libera la pista cuando sea seguro.";
-  } else if(s.stage==="Approach"||/\b(established on final|on final|final approach|runway in sight|visual approach)\b/i.test(msg)){
+  } else if(s.stage==="Approach"&&s.approachVectorStage==="Final"&&/\b(established on final|on final|final approach|runway in sight|visual approach)\b/i.test(msg)){
    phase="Landing";s.stage="Landing";
    atc=cs+", runway "+ar+", cleared to land. Wind "+((s.weather&&s.weather.wind)||"variable")+". After landing, vacate when able and contact Ground on 121.900.";
    hint=cs+", cleared to land runway "+ar+", "+cs+".";
