@@ -83,8 +83,9 @@ function core(message,c,history){
  var cs=clean(c.callsign||"November Niner Charlie Bravo",80),ac=clean(c.aircraft||"Learjet 45",50),s=stateFrom(history,c);
  var emergency=/\b(mayday|pan.?pan|engine fail|engine out|fire|smoke|medical|bird strike|emergency|lost comms|lost communication|lost communications|radio failure|radio out|unable to communicate|unable to transmit|unable to receive|two.?way radio failure|communications failure|comms failure|wind shear|microburst|severe turbulence|icing)\b/i.test(message);
  var called="";
+ if(/\b(go.?around|going around|missed approach)\b/i.test(msg)&&/approach|landing|go.?around/i.test(String(s.stage||c.phase||"")))called="Tower";
  var calls=[["Clearance",/\b(clearance delivery|clearance)\b/i],["Ground",/\bground\b/i],["Tower",/\btower\b/i],["Departure",/\bdeparture\b/i],["Center",/\b(center)\b/i],["Approach",/\bapproach\b/i],["ATIS",/\b(atis|information|weather report|request weather)\b/i],["Unicom",/\b(unicom|traffic)\b/i]];
- for(var ci=0;ci<calls.length;ci++){if(calls[ci][1].test(msg)){called=calls[ci][0];break;}}
+ if(!called){for(var ci=0;ci<calls.length;ci++){if(calls[ci][1].test(msg)){called=calls[ci][0];break;}}}
  var stage=s.stage||"Preflight";
  s.flightId=clean(c.flightId||s.flightId,100);
  s.stateVersion=2;
@@ -100,6 +101,7 @@ function core(message,c,history){
   else if(stage==="TaxiIn"&&/\b(parked|at parking|at the gate|shut down|shutdown)\b/i.test(msg))called="Ground";
  }
  var first=!s.assignedDepartureRunway;
+ var readbackEvaluated=false;
  if(first){
   s.weather=makeWeather(s.flightId||[from.icao,to.icao,ac].join("-"));
   s.simWind=s.weather.windDirection;
@@ -149,7 +151,7 @@ function core(message,c,history){
  } else if(station==="Clearance"){
   phase="Preflight";frequency="121.700";
   if(s.stage==="ClearedToTaxi"&&!/\b(repeat|say again|say that again|unable to copy)\b/i.test(msg)){
-   var check=readbackCheck(message,s);
+   var check=readbackCheck(message,s);readbackEvaluated=true;s.lastReadback=check;
    if(check.errors.length){
     s.readbackStatus="correction-required";s.readbackPending=true;s.clearanceReadbackVerified=false;
     atc=cs+", negative. Check your readback: "+check.errors.join("; ")+". The assigned clearance remains runway "+dr+", initial altitude "+s.initialAltitude+", squawk "+s.squawk+". Say again.";
@@ -263,7 +265,7 @@ function core(message,c,history){
    hint=cs+", taxi to parking, "+cs+".";
    explanation="Sigue las calles señalizadas en Aerofly hasta el estacionamiento.";
   } else if(s.stage!=="HoldingShort"){
-   phase="Holding Short";
+   phase="Holding Short";s.stage="HoldingShort";
    atc=cs+", hold short runway "+dr+". Report holding short and ready for departure before takeoff clearance.";
    hint=cs+", holding short runway "+dr+", "+cs+".";
    explanation="Tower no autoriza el despegue hasta que el piloto confirme que está en posición de espera.";
@@ -443,6 +445,36 @@ function core(message,c,history){
   explanation="No identifiqué la estación llamada. Repite tu llamada inicial.";
  }
  s.phase=phase;s.lastStation=station;s.frequency=frequency;s.updatedAt=new Date().toISOString();
+// Persistent simulator-side lifecycle and compact flight recorder. Telemetry is not connected.
+var previousLifecycle=s.flightLifecycle||{};
+var previousPhase=previousLifecycle.phase||"Preflight";
+var lifecycle={
+ phase:phase,
+ station:station,
+ previousPhase:previousPhase,
+ lastPilotCall:String(message||"").slice(0,180),
+ transitionCount:(Number(previousLifecycle.transitionCount)||0)+(previousPhase!==phase?1:0),
+ updatedAt:s.updatedAt,
+ telemetry:"NOT_CONNECTED",
+ groundOperation:previousLifecycle.groundOperation||"NOT_STARTED",
+ approachStatus:previousLifecycle.approachStatus||"NOT_STARTED"
+};
+if(/taxi|pushback/i.test(msg))lifecycle.groundOperation="TAXI_OR_PUSHBACK";
+if(/holding short/i.test(msg))lifecycle.groundOperation="HOLDING_SHORT";
+if(/airborne|positive rate|climbing out|off the ground/i.test(msg))lifecycle.groundOperation="AIRBORNE";
+if(/localizer|glideslope|established on final|final approach/i.test(msg))lifecycle.approachStatus="IN_PROGRESS";
+if(/missed approach|go.?around/i.test(msg))lifecycle.approachStatus="MISSED_APPROACH";
+if(/vacated|clear of runway|runway clear|parked|shut ?down/i.test(msg))lifecycle.groundOperation="LANDED_OR_PARKED";
+if(phase==="Landing"&&lifecycle.approachStatus!=="MISSED_APPROACH")lifecycle.approachStatus="LANDING";
+s.flightLifecycle=lifecycle;
+if(!s.flightRecorder||typeof s.flightRecorder!=="object")s.flightRecorder={transmissions:0,readbackErrors:0,phaseChanges:0,events:[]};
+s.flightRecorder.transmissions=(Number(s.flightRecorder.transmissions)||0)+1;
+if(previousPhase!==phase)s.flightRecorder.phaseChanges=(Number(s.flightRecorder.phaseChanges)||0)+1;
+if(readbackEvaluated&&s.lastReadback&&s.lastReadback.ok===false)s.flightRecorder.readbackErrors=(Number(s.flightRecorder.readbackErrors)||0)+1;
+s.flightRecorder.events=Array.isArray(s.flightRecorder.events)?s.flightRecorder.events:[];
+s.flightRecorder.events.push({phase:phase,station:station,pilotCall:String(message||"").slice(0,120),atc:String(atc||"").slice(0,220),timestamp:s.updatedAt});
+s.flightRecorder.events=s.flightRecorder.events.slice(-20);
+
  return {station:station,phase:phase,frequency:frequency,atc:atc,hint:hint,explanation:explanation,state:s,engine:"AEROFLY ATC CORE"};
 }
 export default {async fetch(request,env){
