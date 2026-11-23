@@ -240,7 +240,9 @@ function core(message,c,history){
   explanation="Confirma el ascenso y contacta Center cuando estés establecido en ruta.";
  } else if(station==="Center"){
   frequency="127.000";
-  var directMatch=null,diversionMatch=msg.match(/\b(?:divert(?:ing)? to|alternate(?: airport)?\s+)([a-z0-9]{3,4})\b/i);
+  var directMatch=msg.match(/\b(?:request direct to|direct to|proceed direct to|request direct|proceed direct)\s+(?:waypoint\s+)?([a-z0-9]{2,8})\b/i);
+  var passedMatch=msg.match(/\b(?:over|abeam|passed)\s+(?:waypoint\s+)?([a-z0-9]{2,8})\b/i);
+  var diversionMatch=msg.match(/\b(?:request diversion to|divert(?:ing)? to|alternate(?: airport)?\s+)([a-z0-9]{3,4})\b/i);
   if(/\b(request diversion|divert due to weather|weather diversion|request alternate)\b/i.test(msg)&&!diversionMatch){
    s.diversionRequested=true;
    atc=cs+", weather deviation acknowledged. State your requested alternate airport and fuel endurance. Maintain present altitude and advise if conditions worsen.";
@@ -248,19 +250,17 @@ function core(message,c,history){
    explanation="La desviación meteorológica es simulada. Confirma el aeropuerto alterno y combustible; consulta las condiciones en Aerofly.";
   }else if(diversionMatch){
    var alternateCode=diversionMatch[1].toUpperCase(),alternateAirport=apt(alternateCode);
-   if(alternateAirport[0]==="Unknown"){
+   if(!AIRPORTS.some(function(a){return a[1]===alternateCode;})){
     atc=cs+", alternate "+alternateCode+" is not in the current airport directory. Confirm the ICAO code or select another listed airport.";
     hint=cs+", alternate airport "+alternateCode+", say again.";
     explanation="El aeropuerto alterno no está en el directorio local.";
    }else{
     s.alternateAirport=alternateCode;s.diversionRequested=false;
-    atc=cs+", "+alternateAirport[0] accepted as your simulated alternate. Advise when ready to proceed direct, and confirm fuel endurance.";
+    atc=cs+", "+alternateAirport[0]+" accepted as your simulated alternate. Advise when ready to proceed direct, and confirm fuel endurance.";
     hint=cs+", diverting to "+alternateAirport[0]+", "+cs+".";
     explanation="Aeropuerto alterno guardado en la memoria de vuelo. La ruta no se carga automáticamente en Aerofly.";
    }
-  }else if(directMatch=msg.match(/\b(?:request direct to|direct to|proceed direct to|request direct|proceed direct)\s+(?:waypoint\s+)?([a-z0-9]{2,8})\b/i)){
-  var passedMatch=msg.match(/\b(?:over|abeam|passed)\s+(?:waypoint\s+)?([a-z0-9]{2,8})\b/i);
-  if(directMatch){
+  }else if(directMatch){
    var directFix=directMatch[1].toUpperCase(),directIndex=s.routeWaypoints.indexOf(directFix);
    if(directIndex<0){
     atc=cs+", unable to verify "+directFix+" in your saved flight plan. Confirm the waypoint or request a route amendment.";
@@ -272,7 +272,7 @@ function core(message,c,history){
     hint=cs+", direct "+directFix+" approved, maintaining "+(s.assignedCruiseAltitude||s.initialAltitude)+", "+cs+".";
     explanation="ATC reconoce el waypoint de tu plan guardado. La ruta y el rumbo deben verificarse en Aerofly; este sistema no lee la posición real.";
    }
-  } else if(passedMatch){
+  }else if(passedMatch){
    var passedFix=passedMatch[1].toUpperCase(),passedIndex=s.routeWaypoints.indexOf(passedFix);
    if(passedIndex<0){
     atc=cs+", say again the waypoint. "+passedFix+" is not in the saved route.";
@@ -286,7 +286,7 @@ function core(message,c,history){
     hint=cs+", "+passedFix+" passed, proceeding to "+nextFix+", "+cs+".";
     explanation="Progreso de ruta actualizado con base en tu reporte verbal, no en telemetría de Aerofly.";
    }
-  } else if(/\b(request descent|ready to descend|descending|inbound|request approach|approach)\b/i.test(msg)){
+  }else if(/\b(request descent|ready to descend|descending|inbound|request approach|approach)\b/i.test(msg)){
    station="Approach";phase="Approach";frequency="124.000";s.stage="Approach";
    if(!s.simulatedTraffic)s.simulatedTraffic=makeTraffic(s.flightId||"flight",ar);
    s.approachAltitude=s.approachAltitude||"6,000 feet";
@@ -304,11 +304,11 @@ function core(message,c,history){
     hint=cs+", heading "+String(s.assignedVectorHeading).padStart(3,"0")+", descending to "+s.approachAltitude+", reducing to "+s.aircraftProfile.approachSpeed+", "+cs+".";
     explanation="Aproximación IFR simulada con vectores. No representa una carta, procedimiento publicado ni guía real de navegación.";
    }
-  } else if(s.stage==="Departure"&&!s.cruiseAltitudeAssigned){
+  }else if(s.stage==="Departure"&&!s.cruiseAltitudeAssigned){
    phase="Cruise";s.stage="Cruise";s.cruiseAltitudeAssigned=true;
    atc=cs+", Oakland Center. Climb and maintain "+s.assignedCruiseAltitude+". This is your simulated cruise altitude for the "+s.aircraftProfile.name+". Advise when ready to descend.";
    hint=cs+", climbing to "+s.assignedCruiseAltitude+", "+cs+".";explanation="Center asigna un nivel de crucero adaptado al tipo de aeronave.";
-  } else {
+  }else{
    phase="Cruise";s.stage="Cruise";
    atc=cs+", Oakland Center, roger. Maintain "+(s.assignedCruiseAltitude||s.initialAltitude)+". Advise when ready to descend.";
    hint="Maintaining "+(s.assignedCruiseAltitude||s.initialAltitude)+", "+cs+".";explanation="En ruta: mantén tu última altitud asignada y solicita descenso cuando corresponda.";
