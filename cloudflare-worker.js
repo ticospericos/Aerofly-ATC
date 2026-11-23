@@ -137,7 +137,11 @@ function core(message,c,history){
    hint="Frequency change acknowledged, "+cs+". Have a good day.";
    explanation="Despedida natural del controlador al cerrar la frecuencia o confirmar el cambio a la siguiente dependencia.";
  }else if(/\b(go.?around|going around|missed approach)\b/i.test(msg)){
-   station="Tower";phase="Go-Around";frequency="118.300";atc=cs+", roger, go-around. Runway track, climb to 3,000 feet, maintain runway heading. Advise when established in the climb; expect further instructions from Approach.";hint=cs+", going around, runway track, climbing to 3,000 feet.";explanation="Go-around reconocido: ascenso, rumbo de pista y coordinación para nueva aproximación.";s.nextStation="Approach";
+ station="Tower";phase="Go-Around";frequency="118.300";s.approachStage="MISSED_APPROACH";
+ atc=cs+", roger, missed approach. Fly the published missed-approach procedure from your chart. If the procedure is not available in your materials, advise intentions and maintain aircraft control; Approach will resequence traffic. Do not use an invented fix or altitude.";
+ hint=cs+", going around, flying published missed approach, request vectors.";
+ explanation="Aproximación frustrada: seguir la carta publicada; el sistema no inventa fixes, altitudes ni rumbos.";
+ s.nextStation="Approach";
  }else if(/atis|information|weather/i.test(msg)||station==="ATIS"){
    station="ATIS";s.atis=s.atis&&s.atis.airport===dep[1]?s.atis:{airport:dep[1],information:String.fromCharCode(65+Math.floor(Math.random()*8)),wind:String(s.simWind||270).padStart(3,"0")+" at "+(s.simWindSpeed||6)+" knots",visibility:s.simVisibility||"10 miles",temperature:(17+Math.floor(Math.random()*12))+" degrees Celsius",runway:dr,conditions:s.simCeiling||"Few clouds",altimeter:s.simAltimeter||"29.92"};atc=`${dep[0]} information ${s.atis.information}. Wind ${s.atis.wind}. Visibility ${s.atis.visibility}. ${s.atis.conditions}. Temperature ${s.atis.temperature}. Altimeter ${s.atis.altimeter}. Runway ${dr} in use. Advise you have information ${s.atis.information}. Simulated ATIS.`;hint=`Information ${s.atis.information} received, ${cs}.`;explanation="ATIS ficticio, no sincronizado con el clima de Aerofly.";frequency="126.000";
  }else if(first||/request clearance|clearance|ifr clearance|vfr clearance/.test(msg)||(station==="Clearance"&&phase==="Preflight")){
