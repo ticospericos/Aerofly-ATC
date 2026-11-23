@@ -628,6 +628,35 @@ if ("speechSynthesis" in window) {
 }
 
 let atcSpeaking = false;
+let radioAudioContext = null;
+function playRadioSquelch(kind="open") {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    if (!radioAudioContext) radioAudioContext = new AudioContextClass();
+    if (radioAudioContext.state === "suspended") radioAudioContext.resume().catch(() => {});
+    const context = radioAudioContext;
+    const duration = kind === "open" ? 0.055 : 0.035;
+    const frameCount = Math.max(1, Math.floor(context.sampleRate * duration));
+    const buffer = context.createBuffer(1, frameCount, context.sampleRate);
+    const channel = buffer.getChannelData(0);
+    for (let i = 0; i < frameCount; i++) {
+      const envelope = 1 - i / frameCount;
+      channel[i] = (Math.random() * 2 - 1) * envelope;
+    }
+    const source = context.createBufferSource();
+    const filter = context.createBiquadFilter();
+    const gain = context.createGain();
+    source.buffer = buffer;
+    filter.type = "highpass";
+    filter.frequency.value = 1100;
+    gain.gain.value = kind === "open" ? 0.018 : 0.012;
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(context.destination);
+    source.start();
+  } catch (_) {}
+}
 let activeNeuralAudio = null;
 let activeAudioUrl = null;
 let speechRequestId = 0;
@@ -665,13 +694,14 @@ function speakWithSystem(text, options, requestId) {
     utterance.lang = voice.lang || "en-US";
   }
   utterance.onstart = () => { atcSpeaking = true; };
-  utterance.onend = () => { atcSpeaking = false; };
+  utterance.onend = () => { atcSpeaking = false; playRadioSquelch("close"); };
   utterance.onerror = () => { atcSpeaking = false; };
   synth.speak(utterance);
 }
 
 async function speak(text, options={}) {
   if (!text) return;
+  playRadioSquelch("open");
   const requestId = ++speechRequestId;
   if (options.interrupt !== false) {
     releaseNeuralAudio();
@@ -712,6 +742,7 @@ async function speak(text, options={}) {
     };
     audio.onended = () => {
       atcSpeaking = false;
+      playRadioSquelch("close");
       if (activeNeuralAudio === audio) releaseNeuralAudio();
     };
     audio.onerror = () => {
