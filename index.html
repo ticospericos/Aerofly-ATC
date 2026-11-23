@@ -494,15 +494,29 @@ function log(tag,text,kind="") {
   $("log").prepend(entry);
 }
 
+// Select one natural-sounding English voice automatically. Prefer a higher-quality
+// US English voice when iOS/browser exposes one; never show a voice picker.
+const PREFERRED_VOICE_NAMES = ["Ava", "Jenny", "Aria", "Samantha", "Karen", "Michelle", "Allison", "Joanna"];
+let selectedAtcVoice = null;
+
 function getPreferredAtcVoice() {
   if (!("speechSynthesis" in window)) return null;
   const voices = window.speechSynthesis.getVoices().filter(v => /^en(-|_)/i.test(v.lang));
-  const maleNames = /\b(Alex|Aaron|Evan|Guy|David|Mark|Daniel|James|Oliver|Arthur|Fred|Tom|Rishi|Lee|Gordon|Nathan|Reed|Ralph)\b|Microsoft.*(Guy|David|Mark)/i;
-  const femaleNames = /Samantha|Victoria|Karen|Moira|Tessa|Fiona|Susan|Zira|Jenny|Aria|Michelle|Ava|Allison|Joanna|Kendra|Kimberly|Salli/i;
-  return voices.find(v => /^en-US/i.test(v.lang) && /\b(Alex|Aaron|Evan|Guy|David|Mark)\b/i.test(v.name))
-    || voices.find(v => maleNames.test(v.name) && !femaleNames.test(v.name))
-    || voices.find(v => /^en-US/i.test(v.lang))
-    || null;
+  if (!voices.length) return null;
+  for (const preferred of PREFERRED_VOICE_NAMES) {
+    const match = voices.find(v => new RegExp("\\b" + preferred + "\\b", "i").test(v.name) && /^en-US/i.test(v.lang))
+      || voices.find(v => new RegExp("\\b" + preferred + "\\b", "i").test(v.name));
+    if (match) return match;
+  }
+  return voices.find(v => /^en-US/i.test(v.lang)) || voices[0];
+}
+
+function refreshAtcVoice() {
+  selectedAtcVoice = getPreferredAtcVoice();
+}
+if ("speechSynthesis" in window) {
+  refreshAtcVoice();
+  window.speechSynthesis.onvoiceschanged = refreshAtcVoice;
 }
 
 function speak(text) {
@@ -514,10 +528,15 @@ function speak(text) {
   synth.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = "en-US";
-  utterance.rate = 0.91;
-  utterance.pitch = 0.94;
-  const voice = getPreferredAtcVoice();
-  if (voice) utterance.voice = voice;
+  utterance.rate = 0.96;
+  utterance.pitch = 1.0;
+  const voice = selectedAtcVoice || getPreferredAtcVoice();
+  if (voice) {
+    utterance.voice = voice;
+    utterance.lang = voice.lang || "en-US";
+  }
+  // iOS sometimes needs a short pause after cancel before starting a new utterance.
+  utterance.onend = () => {};
   synth.speak(utterance);
 }
 
@@ -729,12 +748,22 @@ $("clear").onclick = () => {
 };
 
 function normalizeAviationTranscript(text) {
-  return text
+  let value = text
     .replace(/\bready to send\b/gi, "ready to descend")
+    .replace(/\bready to decent\b/gi, "ready to descend")
+    .replace(/\bready for descend\b/gi, "ready to descend")
     .replace(/\bready descend\b/gi, "ready to descend")
     .replace(/\brequest to send\b/gi, "request descent")
     .replace(/\brequest decent\b/gi, "request descent")
-    .replace(/\bready for decent\b/gi, "ready to descend");
+    .replace(/\brequest to decent\b/gi, "request descent")
+    .replace(/\bready for decent\b/gi, "ready to descend")
+    .replace(/\bholding (?:sure|shirt|shorts)\b/gi, "holding short")
+    .replace(/\bclear for take ?off\b/gi, "cleared for takeoff")
+    .replace(/\bcleared for take off\b/gi, "cleared for takeoff")
+    .replace(/\bline up and wait\b/gi, "line up and wait")
+    .replace(/\bcontact tower\b/gi, "contact tower")
+    .replace(/\bcontact ground\b/gi, "contact ground");
+  return value.replace(/\s+/g, " ").trim();
 }
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -760,6 +789,7 @@ $("micButton").onclick = () => {
     recognition.lang = "en-US";
     recognition.continuous = false;
     recognition.interimResults = true;
+    recognition.maxAlternatives = 5;
 
     recognition.onstart = () => {
       recognizing = true;
@@ -767,7 +797,6 @@ $("micButton").onclick = () => {
       $("micButton").textContent = "■ Stop Microphone";
     };
 
-    recognition.maxAlternatives = 5;
     recognition.onresult = event => {
       let finalText = "";
       let interimText = "";
@@ -782,10 +811,15 @@ $("micButton").onclick = () => {
           /cleared to land/i, /cleared for takeoff/i, /taxi to/i,
           /contact approach/i, /contact tower/i, /contact ground/i
         ];
-        const ranked = choices.map((text, index) => ({
-          text,
-          score: aviationPhrases.reduce((score, pattern) => score + (pattern.test(text) ? 5 : 0), 0) - index * 0.15
-        })).sort((x, y) => y.score - x.score);
+        const ranked = choices.map((text, index) => {
+          const candidate = normalizeAviationTranscript(text);
+          const phraseScore = aviationPhrases.reduce((score, pattern) => score + (pattern.test(candidate) ? 6 : 0), 0);
+          const radioWords = /\\b(clearance|ground|tower|departure|center|approach|runway|altitude|climb|climbing|descend|descent|landing|takeoff|taxi|holding|short|inbound|final|squawk|frequency)\\b/gi;
+          const wordScore = (candidate.match(radioWords) || []).length * 1.25;
+          const confidenceScore = typeof result[index]?.confidence === "number" ? result[index].confidence * 2 : 0;
+          const completenessScore = candidate.trim().split(/\\s+/).length >= 3 ? 0.5 : 0;
+          return { text, score: phraseScore + wordScore + confidenceScore + completenessScore - index * 0.1 };
+        }).sort((x, y) => y.score - x.score);
         const spoken = normalizeAviationTranscript(ranked[0].text);
         if (result.isFinal) finalText += (finalText ? " " : "") + spoken;
         else interimText += (interimText ? " " : "") + spoken;
