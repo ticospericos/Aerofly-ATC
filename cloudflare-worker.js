@@ -100,6 +100,7 @@ function core(message,c,history){
   else if(stage==="TaxiIn"&&/\b(parked|at parking|at the gate|shut down|shutdown)\b/i.test(msg))called="Ground";
  }
  var first=!s.assignedDepartureRunway;
+ var readbackEvaluated=false;
  if(first){
   s.weather=makeWeather(s.flightId||[from.icao,to.icao,ac].join("-"));
   s.simWind=s.weather.windDirection;
@@ -149,7 +150,7 @@ function core(message,c,history){
  } else if(station==="Clearance"){
   phase="Preflight";frequency="121.700";
   if(s.stage==="ClearedToTaxi"&&!/\b(repeat|say again|say that again|unable to copy)\b/i.test(msg)){
-   var check=readbackCheck(message,s);
+   var check=readbackCheck(message,s);readbackEvaluated=true;s.lastReadback=check;
    if(check.errors.length){
     s.readbackStatus="correction-required";s.readbackPending=true;s.clearanceReadbackVerified=false;
     atc=cs+", negative. Check your readback: "+check.errors.join("; ")+". The assigned clearance remains runway "+dr+", initial altitude "+s.initialAltitude+", squawk "+s.squawk+". Say again.";
@@ -468,7 +469,7 @@ s.flightLifecycle=lifecycle;
 if(!s.flightRecorder||typeof s.flightRecorder!=="object")s.flightRecorder={transmissions:0,readbackErrors:0,phaseChanges:0,events:[]};
 s.flightRecorder.transmissions=(Number(s.flightRecorder.transmissions)||0)+1;
 if(previousPhase!==phase)s.flightRecorder.phaseChanges=(Number(s.flightRecorder.phaseChanges)||0)+1;
-if(s.lastReadback&&s.lastReadback.ok===false)s.flightRecorder.readbackErrors=(Number(s.flightRecorder.readbackErrors)||0)+1;
+if(readbackEvaluated&&s.lastReadback&&s.lastReadback.ok===false)s.flightRecorder.readbackErrors=(Number(s.flightRecorder.readbackErrors)||0)+1;
 s.flightRecorder.events=Array.isArray(s.flightRecorder.events)?s.flightRecorder.events:[];
 s.flightRecorder.events.push({phase:phase,station:station,pilotCall:String(message||"").slice(0,120),atc:String(atc||"").slice(0,220),timestamp:s.updatedAt});
 s.flightRecorder.events=s.flightRecorder.events.slice(-20);
