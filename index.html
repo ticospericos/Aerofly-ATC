@@ -676,7 +676,7 @@ $("send").onclick = async () => {
 
   try {
     const controller = new AbortController();
-    const requestTimer = setTimeout(() => controller.abort(), 20000);
+    const requestTimer = setTimeout(() => controller.abort(), 40000);
     let response, raw, data;
     try {
       response = await fetch(ATC_API, {
