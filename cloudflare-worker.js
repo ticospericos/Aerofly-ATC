@@ -260,10 +260,17 @@ function core(message,c,history){
    s.approachType=String(c.flightRules||"IFR").toUpperCase()==="VFR"?"visual":"instrument";
    s.approachRunwayHeading=hdg(ar);
    s.assignedVectorHeading=(s.approachRunwayHeading+(s.approachRunwayHeading>=180?-20:20)+360)%360;
-   s.approachVectorStage="Vectors";
-   atc=cs+", "+arr[0]+" Approach. Expect "+(s.approachType==="instrument"?"vectors for a simulated instrument approach":"a simulated visual approach")+" runway "+ar+". Turn heading "+String(s.assignedVectorHeading).padStart(3,"0")+". Descend and maintain "+s.approachAltitude+". Reduce speed to "+s.aircraftProfile.approachSpeed+" when able. Report established on the localizer or inbound course.";
-   hint=cs+", heading "+String(s.assignedVectorHeading).padStart(3,"0")+", descending to "+s.approachAltitude+", reducing to "+s.aircraftProfile.approachSpeed+", "+cs+".";
-   explanation="Aproximación simulada con vector inicial. No representa una carta, procedimiento publicado ni guía real de navegación.";
+   if(s.approachType==="visual"){
+    s.approachVectorStage="VFRPattern";
+    atc=cs+", "+arr[0]+" Approach. Proceed to the airport and enter the visual traffic pattern as depicted in your simulator for runway "+ar+". Report downwind. Maintain the published or simulator pattern altitude.";
+    hint=cs+", entering the traffic pattern runway "+ar+", will report downwind, "+cs+".";
+    explanation="Circuito VFR simulado. Utiliza el patrón y la altitud indicados por Aerofly; no se inventan sentidos de giro ni altitudes locales.";
+   }else{
+    s.approachVectorStage="Vectors";
+    atc=cs+", "+arr[0]+" Approach. Expect vectors for a simulated instrument approach runway "+ar+". Turn heading "+String(s.assignedVectorHeading).padStart(3,"0")+". Descend and maintain "+s.approachAltitude+". Reduce speed to "+s.aircraftProfile.approachSpeed+" when able. Report established on the localizer or inbound course.";
+    hint=cs+", heading "+String(s.assignedVectorHeading).padStart(3,"0")+", descending to "+s.approachAltitude+", reducing to "+s.aircraftProfile.approachSpeed+", "+cs+".";
+    explanation="Aproximación IFR simulada con vectores. No representa una carta, procedimiento publicado ni guía real de navegación.";
+   }
   } else if(s.stage==="Departure"&&!s.cruiseAltitudeAssigned){
    phase="Cruise";s.stage="Cruise";s.cruiseAltitudeAssigned=true;
    atc=cs+", Oakland Center. Climb and maintain "+s.assignedCruiseAltitude+". This is your simulated cruise altitude for the "+s.aircraftProfile.name+". Advise when ready to descend.";
@@ -275,7 +282,38 @@ function core(message,c,history){
   }
  } else if(station==="Approach"){
   phase="Approach";frequency="124.000";s.stage="Approach";
-  if(s.approachVectorStage==="Vectors"&&/\b(established|localizer|inbound course|intercepting|on the localizer)\b/i.test(msg)){
+  if(s.approachType==="visual"&&/^VFR/.test(s.approachVectorStage||"")){
+   if(/\b(final|runway in sight|turning final|on final)\b/i.test(msg)){
+    s.approachVectorStage="Final";
+    atc=cs+", roger, runway "+ar+" in sight. Contact Tower on 118.300 when established on final for landing clearance.";
+    hint=cs+", runway in sight, joining final runway "+ar+", contacting Tower 118.300, "+cs+".";
+    explanation="Final visual simulada. Contacta Tower para solicitar la autorización de aterrizaje.";
+   }else if(/\b(base|turning base)\b/i.test(msg)){
+    s.approachVectorStage="VFRFinal";
+    atc=cs+", roger, report final runway "+ar+". Use the traffic pattern shown in your simulator.";
+    hint=cs+", turning base runway "+ar+", will report final, "+cs+".";
+    explanation="Tramo base VFR simulado. Continúa el patrón representado en Aerofly.";
+   }else if(/\b(downwind|joining the pattern|entering the pattern|traffic pattern)\b/i.test(msg)){
+    s.approachVectorStage="VFRBase";
+    atc=cs+", roger, report turning base runway "+ar+". Maintain the published or simulator pattern altitude.";
+    hint=cs+", downwind runway "+ar+", will report base, "+cs+".";
+    explanation="Tramo viento en cola VFR simulado. Reporta cuando gires a base.";
+   }else{
+    atc=cs+", continue to the airport and enter the visual traffic pattern as depicted in your simulator. Report downwind runway "+ar+".";
+    hint=cs+", entering downwind runway "+ar+", "+cs+".";
+    explanation="Sigue el patrón visual mostrado por Aerofly y reporta cada tramo.";
+   }
+  } else if(s.approachVectorStage==="VFRBase"&&/\b(base|turning base)\b/i.test(msg)){
+   s.approachVectorStage="VFRFinal";
+   atc=cs+", roger, report final runway "+ar+".";
+   hint=cs+", turning base runway "+ar+", will report final, "+cs+".";
+   explanation="Tramo base VFR simulado.";
+  } else if(s.approachVectorStage==="VFRFinal"&&/\b(final|runway in sight|turning final|on final)\b/i.test(msg)){
+   s.approachVectorStage="Final";
+   atc=cs+", roger, contact Tower on 118.300 for landing clearance runway "+ar+".";
+   hint=cs+", established on final runway "+ar+", contacting Tower 118.300, "+cs+".";
+   explanation="Final VFR simulado. Solicita autorización de aterrizaje a Tower.";
+  } else if(s.approachVectorStage==="Vectors"&&/\b(established|localizer|inbound course|intercepting|on the localizer)\b/i.test(msg)){
    s.approachVectorStage="Final";
    s.assignedFinalHeading=s.approachRunwayHeading;
    s.approachAltitude=s.approachAltitude||"3,000 feet";
