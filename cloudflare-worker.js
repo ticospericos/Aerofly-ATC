@@ -10,6 +10,12 @@ function apt(code){return AIRPORTS.find(a=>a[1]===code)||[code||"Unknown",code||
 function hdg(r){var m=String(r||"").match(/^([0-9]{1,2})/);return m?(Number(m[1])*10)%360:0;}
 function runway(list,wind){if(!list||!list.length)return "";return list.slice().sort((a,b)=>Math.abs(((hdg(a)-wind+540)%360)-180)-Math.abs(((hdg(b)-wind+540)%360)-180))[0];}
 function stateFrom(history,c){if(c.flightState&&typeof c.flightState==="object"&&Object.keys(c.flightState).length)return c.flightState;for(var i=(history||[]).length-1;i>=0;i--){if(history[i].role==="model"){try{var x=JSON.parse(history[i].text);if(x.state)return x.state;}catch(e){}}}return {};}
+function aircraftProfile(name,rules){
+ var key=String(name||"").toLowerCase(),vfr=String(rules||"IFR").toUpperCase()==="VFR";
+ if(key.indexOf("cessna")>=0||key.indexOf("172")>=0)return {name:"Cessna 172",category:"single-engine piston",initialAltitude:vfr?"3,500 feet":"3,000 feet",cruiseAltitude:vfr?"6,500 feet":"7,000 feet",approachSpeed:"90 knots",climbProfile:"a gradual climb; allow time to reach assigned altitude",approachProfile:"a stabilized visual or instrument approach at light-aircraft speeds"};
+ if(key.indexOf("a320")>=0||key.indexOf("airbus")>=0)return {name:"Airbus A320",category:"twin-engine jet",initialAltitude:"5,000 feet",cruiseAltitude:"28,000 feet",approachSpeed:"180 knots",climbProfile:"a managed jet climb; comply with each intermediate altitude restriction",approachProfile:"a stabilized jet approach; reduce speed as instructed"};
+ return {name:"Learjet 45",category:"business jet",initialAltitude:"5,000 feet",cruiseAltitude:"25,000 feet",approachSpeed:"160 knots",climbProfile:"a high-performance business-jet climb; comply with intermediate altitude restrictions",approachProfile:"a stabilized business-jet approach; reduce speed as instructed"};
+}
 function spokenDigits(text){
  var map={zero:"0",oh:"0",one:"1",two:"2",three:"3",four:"4",five:"5",six:"6",seven:"7",eight:"8",nine:"9",niner:"9"};
  var value=String(text||"").toLowerCase().replace(/\b(zero|oh|one|two|three|four|five|six|seven|eight|nine|niner)\b/g,function(x){return map[x];}).replace(/\b(\d)\s+thousand\b/g,function(_,n){return String(Number(n)*1000);}).replace(/,/g,"");
@@ -58,7 +64,10 @@ function core(message,c,history){
   s.simWind=270;
   s.assignedDepartureRunway=runway(dep[2],s.simWind);
   s.assignedArrivalRunway=runway(arr[2],s.simWind);
-  s.initialAltitude=c.flightRules==="VFR"?"5,500 feet":"5,000 feet";
+  s.aircraftProfile=aircraftProfile(ac,c.flightRules);
+  s.initialAltitude=s.aircraftProfile.initialAltitude;
+  s.assignedCruiseAltitude=s.aircraftProfile.cruiseAltitude;
+  s.approachSpeed=s.aircraftProfile.approachSpeed;
   s.squawk=String(1000+Math.floor(Math.random()*7000));
   s.stage="Preflight";
   s.initialized=true;
@@ -170,25 +179,29 @@ function core(message,c,history){
   }
  } else if(station==="Departure"){
   phase="Departure";frequency="124.600";s.stage="Departure";
-  atc=cs+", radar contact. Climb and maintain "+s.initialAltitude+". When established en route, contact Oakland Center on 127.000.";
+  atc=cs+", radar contact. "+s.aircraftProfile.climbProfile+". Climb and maintain "+s.initialAltitude+". When established en route, contact Oakland Center on 127.000.";
   hint=cs+", climbing to "+s.initialAltitude+", will contact Oakland Center 127.000, "+cs+".";
   explanation="Confirma el ascenso y contacta Center cuando estés establecido en ruta.";
  } else if(station==="Center"){
   frequency="127.000";
   if(/\b(request descent|ready to descend|descending|inbound|request approach|approach)\b/i.test(msg)){
    station="Approach";phase="Approach";frequency="124.000";s.stage="Approach";
-   atc=cs+", "+arr[0]+" Approach. Descend and maintain 6,000 feet. Expect runway "+ar+". Contact Tower on 118.300 when established on final.";
-   hint=cs+", descending to 6,000 feet, expect runway "+ar+", "+cs+".";
+   atc=cs+", "+arr[0]+" Approach. "+s.aircraftProfile.approachProfile+". Descend and maintain "+(s.approachAltitude||"6,000 feet")+". Reduce speed to "+s.aircraftProfile.approachSpeed+" when able. Expect runway "+ar+". Contact Tower on 118.300 when established on final.";
+   hint=cs+", descending to "+(s.approachAltitude||"6,000 feet")+", reducing to "+s.aircraftProfile.approachSpeed+", expect runway "+ar+", "+cs+".";
    explanation="Descenso simulado hacia destino. Cuando estés establecido en final, llama a Tower.";
+  } else if(s.stage==="Departure"&&!s.cruiseAltitudeAssigned){
+   phase="Cruise";s.stage="Cruise";s.cruiseAltitudeAssigned=true;
+   atc=cs+", Oakland Center. Climb and maintain "+s.assignedCruiseAltitude+". This is your simulated cruise altitude for the "+s.aircraftProfile.name+". Advise when ready to descend.";
+   hint=cs+", climbing to "+s.assignedCruiseAltitude+", "+cs+".";explanation="Center asigna un nivel de crucero adaptado al tipo de aeronave.";
   } else {
    phase="Cruise";s.stage="Cruise";
-   atc=cs+", Oakland Center, roger. Maintain your last assigned altitude. Advise when ready to descend.";
-   hint="Maintaining assigned altitude, "+cs+".";explanation="En ruta: confirma tu altitud asignada y solicita descenso cuando corresponda.";
+   atc=cs+", Oakland Center, roger. Maintain "+(s.assignedCruiseAltitude||s.initialAltitude)+". Advise when ready to descend.";
+   hint="Maintaining "+(s.assignedCruiseAltitude||s.initialAltitude)+", "+cs+".";explanation="En ruta: mantén tu última altitud asignada y solicita descenso cuando corresponda.";
   }
  } else if(station==="Approach"){
   phase="Approach";frequency="124.000";s.stage="Approach";
-  atc=cs+", "+arr[0]+" Approach. Continue approach runway "+ar+". Contact Tower on 118.300 when established on final.";
-  hint=cs+", continuing approach runway "+ar+", will contact Tower on 118.300.";explanation="Confirma la pista prevista y contacta Tower al establecerte en final.";
+  atc=cs+", "+arr[0]+" Approach. Continue approach runway "+ar+". Maintain "+s.approachSpeed+" or as previously assigned. Contact Tower on 118.300 when established on final.";
+  hint=cs+", continuing approach runway "+ar+", maintaining "+s.approachSpeed+", will contact Tower on 118.300.";explanation="Confirma la pista prevista y contacta Tower al establecerte en final.";
  } else if(station==="Unicom"){
   frequency="122.800";atc=dep[0]+" traffic, "+cs+", radio call received. Continue to announce position and intentions.";
   hint=dep[0]+" traffic, "+cs+", [position and intentions].";explanation="UNICOM es frecuencia de autoanuncio, no control ATC.";
