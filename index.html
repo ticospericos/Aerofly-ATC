@@ -338,7 +338,7 @@ button:disabled { opacity:.45; }
     <p id="atcText">
       AEROFLY-ATC online. Select your airports and controller to begin.
     </p>
-    <div class="row" style="margin-top:8px"><button id="speakAtc">▶ Play ATC Voice</button><button id="trafficToggle">Background Traffic: OFF</button><button id="trafficNow">▶ Traffic Sample</button></div><div class="notice" id="trafficStatus" style="margin-top:6px">Background radio is off.</div>
+    <div class="row" style="margin-top:8px"><button id="speakAtc">▶ Play ATC Voice</button><button id="trafficToggle">Background Traffic: OFF</button><button id="trafficNow">▶ Traffic Sample</button></div><div class="notice" id="voiceStatus" style="margin-top:6px">VOICE ENGINE · INITIALIZING</div><div class="notice" id="trafficStatus" style="margin-top:4px">Background radio is off.</div>
   </div>
 
   <label for="transcript">Your radio transmission</label>
@@ -466,6 +466,7 @@ let recognition = null;
 let recognizing = false;
 let recognitionBaseText = "";
 const ATC_API = "https://aerofly-atc-brain.fy5794mdw9.workers.dev/atc";
+const TTS_API = "https://aerofly-atc-brain.fy5794mdw9.workers.dev/tts";
 let conversationHistory = [];
 let flightState = {};
 let currentFrequency = "";
@@ -520,29 +521,88 @@ if ("speechSynthesis" in window) {
 }
 
 let atcSpeaking = false;
-function speak(text, options={}) {
+let activeNeuralAudio = null;
+let activeAudioUrl = null;
+let speechRequestId = 0;
+
+function releaseNeuralAudio() {
+  if (activeNeuralAudio) {
+    activeNeuralAudio.pause();
+    activeNeuralAudio.removeAttribute("src");
+    activeNeuralAudio.load();
+    activeNeuralAudio = null;
+  }
+  if (activeAudioUrl) {
+    URL.revokeObjectURL(activeAudioUrl);
+    activeAudioUrl = null;
+  }
+}
+
+function speakWithSystem(text, options, requestId) {
+  if (requestId !== speechRequestId) return;
   if (!("speechSynthesis" in window)) {
-    log("VOICE","Speech playback is not supported by this browser.");
+    atcSpeaking = false;
+    $("voiceStatus").textContent = "VOICE PLAYBACK UNAVAILABLE";
     return;
   }
   const synth = window.speechSynthesis;
-  if (options.interrupt !== false) {
-    atcSpeaking = false;
-    synth.cancel();
-  }
+  if (options.interrupt !== false) synth.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = "en-US";
-  utterance.rate = options.traffic ? 0.91 : 0.95;
-  utterance.pitch = options.traffic ? 1.02 : 1.0;
+  utterance.rate = options.traffic ? 0.92 : 0.96;
+  utterance.pitch = options.traffic ? 0.98 : 0.96;
   const voice = selectedAtcVoice || getPreferredAtcVoice();
   if (voice) {
     utterance.voice = voice;
     utterance.lang = voice.lang || "en-US";
   }
-  utterance.onstart = () => { if (!options.traffic) atcSpeaking = true; };
-  utterance.onend = () => { if (!options.traffic) atcSpeaking = false; };
-  utterance.onerror = () => { if (!options.traffic) atcSpeaking = false; };
+  utterance.onstart = () => { atcSpeaking = true; };
+  utterance.onend = () => { atcSpeaking = false; };
+  utterance.onerror = () => { atcSpeaking = false; };
   synth.speak(utterance);
+}
+
+async function speak(text, options={}) {
+  if (!text) return;
+  const requestId = ++speechRequestId;
+  if (options.interrupt !== false) {
+    releaseNeuralAudio();
+    atcSpeaking = false;
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+  }
+  try {
+    const response = await fetch(TTS_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text })
+    });
+    if (!response.ok) throw new Error("Neural voice service unavailable");
+    const blob = await response.blob();
+    if (!blob.type.includes("audio")) throw new Error("Neural voice returned no audio");
+    if (requestId !== speechRequestId) return;
+    const audioUrl = URL.createObjectURL(blob);
+    const audio = new Audio(audioUrl);
+    activeAudioUrl = audioUrl;
+    activeNeuralAudio = audio;
+    audio.onplay = () => {
+      atcSpeaking = true;
+      $("voiceStatus").textContent = "NEURAL VOICE · LEO";
+    };
+    audio.onended = () => {
+      atcSpeaking = false;
+      if (activeNeuralAudio === audio) releaseNeuralAudio();
+    };
+    audio.onerror = () => {
+      atcSpeaking = false;
+      if (activeNeuralAudio === audio) releaseNeuralAudio();
+    };
+    await audio.play();
+  } catch (error) {
+    if (requestId !== speechRequestId) return;
+    releaseNeuralAudio();
+    $("voiceStatus").textContent = "SYSTEM VOICE · BACKUP";
+    speakWithSystem(text, options, requestId);
+  }
 }
 
 function setAtc(text) {
