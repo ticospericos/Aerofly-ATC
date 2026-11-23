@@ -872,10 +872,11 @@ let micLastChunkAt = 0;
 let micSessionId = 0;
 
 function normalizeAviationSpeech(value) {
+  const digits = {zero:"0",oh:"0",one:"1",two:"2",three:"3",four:"4",five:"5",six:"6",seven:"7",eight:"8",nine:"9"};
   return String(value || "")
-    .replace(/\b(runway)\s+(zero|oh)\s+(\d)\s+(left|right|center)\b/gi, (_,r,z,n,side) => r+" "+(z==="zero"||z==="oh"?"0":"")+n+side[0].toUpperCase())
-    .replace(/\b(runway)\s+(one|two|three|four|five|six|seven|eight|nine)\s+(left|right|center)\b/gi, (_,r,n,side) => r+" "+({one:"1",two:"2",three:"3",four:"4",five:"5",six:"6",seven:"7",eight:"8",nine:"9"}[n.toLowerCase()])+side[0].toUpperCase())
-    .replace(/\s+/g," ").trim();
+    .replace(/\\b(runway)\\s+(zero|oh|one|two|three|four|five|six|seven|eight|nine)\\s+(zero|oh|one|two|three|four|five|six|seven|eight|nine)\\s+(left|right|center)\\b/gi, (_,r,a,b,side) => r+" "+digits[a.toLowerCase()]+digits[b.toLowerCase()]+({left:"L",right:"R",center:"C"}[side.toLowerCase()]))
+    .replace(/\\b(runway)\\s+(zero|oh|one|two|three|four|five|six|seven|eight|nine)\\s+(left|right|center)\\b/gi, (_,r,n,side) => r+" "+digits[n.toLowerCase()]+({left:"L",right:"R",center:"C"}[side.toLowerCase()]))
+    .replace(/\\s+/g," ").trim();
 }
 function recognitionStatus(message) { $("micStatus").textContent = message; }
 function stopRecognition(release=true) {
