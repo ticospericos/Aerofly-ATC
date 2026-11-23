@@ -12,7 +12,7 @@ function runway(list,wind){if(!list||!list.length)return "";return list.slice().
 function stateFrom(history,c){if(c.flightState&&typeof c.flightState==="object"&&Object.keys(c.flightState).length)return c.flightState;for(var i=(history||[]).length-1;i>=0;i--){if(history[i].role==="model"){try{var x=JSON.parse(history[i].text);if(x.state)return x.state;}catch(e){}}}return {};}
 function spokenDigits(text){
  var map={zero:"0",oh:"0",one:"1",two:"2",three:"3",four:"4",five:"5",six:"6",seven:"7",eight:"8",nine:"9",niner:"9"};
- return String(text||"").toLowerCase().replace(/\b(zero|oh|one|two|three|four|five|six|seven|eight|nine|niner)\b/g,function(x){return map[x];}).replace(/\b(\d)\s+thousand\b/g,function(_,n){return String(Number(n)*1000);}).replace(/,/g,"");
+ var value=String(text||"").toLowerCase().replace(/\b(zero|oh|one|two|three|four|five|six|seven|eight|nine|niner)\b/g,function(x){return map[x];}).replace(/\b(\d)\s+thousand\b/g,function(_,n){return String(Number(n)*1000);}).replace(/,/g,"");\n for(var i=0;i<3;i++)value=value.replace(/\b(\d)\s+(\d)\b/g,"$1$2");\n return value;
 }
 function readbackCheck(message,s){
  var n=spokenDigits(message),assigned=s.assignedDepartureRunway||"",result={ok:true,missing:[],errors:[]};
