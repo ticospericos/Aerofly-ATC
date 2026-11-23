@@ -150,13 +150,64 @@ function core(message,c,history){
  }else if(/taxi|ready to taxi|pushback|parking|start up/.test(msg)||station==="Ground"||phase==="Taxi"){
    station="Ground";phase="Taxi";frequency="121.900";atc=`${cs}, Ground. Pushback and start approved if required. Taxi to the holding point for runway ${dr} via published airport taxiways; give way to traffic, use caution near other aircraft and hold short of runway ${dr}. Report holding short and ready for departure. Taxiway routing is not verified in this database.`;hint=`${cs}, pushback and start approved, taxi to holding point runway ${dr}, hold short, will report holding short.`;explanation="Rodaje con pushback, precaución, tráfico y punto de espera; sin inventar taxiways.";
  }else if(/holding short|ready for departure|ready for takeoff|takeoff/.test(msg)||station==="Tower"||phase==="Takeoff"){
-   station="Tower";phase="Takeoff";frequency="118.300";atc=`${cs}, Tower. Runway ${dr}; wind ${String(s.simWind||270).padStart(3,"0")} at 6 knots. Runway ${dr}, cleared for takeoff. After departure, fly runway heading and contact Departure on 124.600 when airborne. Check final approach is clear.`;hint=`${cs}, runway ${dr}, cleared for takeoff, runway heading, contact Departure 124.600 airborne.`;explanation="Autorización de despegue con viento, rumbo de pista y transferencia a Departure.";s.nextStation="Departure";
+ station="Tower";phase="Takeoff";frequency="118.300";
+ const traffic=nextTrafficAdvisory(s);
+ if(traffic.runwayOccupied){
+  atc=cs+", Tower. Hold short runway "+dr+"; simulated landing traffic is on "+traffic.stage+". Expect departure clearance when the runway is confirmed clear.";
+  hint=cs+", holding short runway "+dr+", awaiting clearance.";
+  explanation="Separación simulada: Tower retiene la autorización mientras hay tráfico en base o final.";
+  s.runwayStatus="OCCUPIED_OR_TRAFFIC_FINAL";
+ }else{
+  atc=cs+", Tower. Runway "+dr+"; wind "+String(s.simWind||270).padStart(3,"0")+" at "+(s.simWindSpeed||6)+" knots. Runway "+dr+", cleared for takeoff. After departure, fly runway heading and contact Departure on 124.600 when airborne. Simulated traffic: "+traffic.advisory;
+  hint=cs+", runway "+dr+", cleared for takeoff, runway heading, contact Departure 124.600 airborne.";
+  explanation="Autorización de despegue con viento, tráfico simulado y transferencia a Departure.";
+  s.runwayStatus="TAKEOFF_CLEARANCE_ISSUED";s.nextStation="Departure";
+ }
  }else if(/departure|airborne|passing|climbing/.test(msg)||phase==="Departure"){
    station="Departure";phase="Departure";frequency="124.600";atc=`${cs}, Departure, radar contact. Continue climb and maintain ${c.requestedAltitude||"FL350"}. Turn heading ${s.heading} when able; advise passing 3,000 feet. Contact Oakland Center on 127.000 when advised.`;hint=`${cs}, radar contact, climbing to ${c.requestedAltitude||"FL350"}, heading ${s.heading}.`;explanation="Departure confirma contacto radar, ascenso y rumbo asignado.";s.nextStation="Center";
  }else if(/center|cruise|maintaining|level/.test(msg)||phase==="Cruise"||station==="Center"){
    station="Center";phase="Cruise";frequency="127.000";atc=`${cs}, Oakland Center, radar contact. Maintain ${c.requestedAltitude||"FL350"}. Report reaching cruise altitude. ${(()=>{const t=nextTrafficAdvisory(s);return "Simulated traffic advisory: "+t.advisory+" Report traffic in sight if visual."})()} Expect descent in approximately 40 miles; advise when ready. Maintain present heading unless otherwise instructed.`;hint=`${cs}, Oakland Center, maintaining ${c.requestedAltitude||"FL350"}, standing by for descent.`;explanation="En ruta: confirma nivel, escucha información de tráfico y espera instrucciones de descenso.";if(/ready to descend|request descent|descending/.test(msg)){station="Approach";phase="Approach";frequency="124.000";atc=`${cs}, descend and maintain 6,000 feet. Expect runway ${ar} at ${arr[0]}. Advise when leaving your current altitude and contact ${arr[0]} Approach on 124.000.`;hint=`${cs}, descend and maintain 6,000 feet, expect runway ${ar}.`;s.nextStation="Approach";}
- }else if(/approach|inbound|descending|established/.test(msg)||phase==="Approach"||station==="Approach"){
-   station="Approach";phase="Approach";frequency="124.000";atc=`${cs}, ${arr[0]} Approach. Radar contact. Continue descent and maintain 3,000 feet until established; expect runway ${ar}. If flying the published ILS, intercept the localizer when cleared and report established; report glideslope alive and captured when indicated in your aircraft. ILS frequency is not available in this simulation. Contact Tower on 118.300 when established.`;hint=`${cs}, maintain 3,000 feet until established, expect runway ${ar}, will contact Tower 118.300.`;explanation="Approach da altitud, pista esperada y condición para transferir a Tower.";s.nextStation="Tower";
+ }else if(/approach|inbound|descending|established|localizer|glideslope|glide slope|rn[a]?v|visual approach|final approach|missed approach|go.?around/.test(msg)||phase==="Approach"||station==="Approach"){
+ station="Approach";phase="Approach";frequency="124.000";
+ if(/missed approach|go.?around|going around/.test(msg)){
+  s.approachStage="MISSED_APPROACH";phase="Go-Around";station="Tower";frequency="118.300";
+  atc=cs+", roger, missed approach. Fly the published missed-approach procedure from your chart; if unavailable, advise intentions and maintain aircraft control. Expect vectors from Approach. Traffic is being resequenced.";
+  hint=cs+", going around, flying published missed approach, request vectors.";
+  explanation="Aproximación frustrada: sigue la carta publicada; el simulador no inventa fixes ni altitudes.";
+  s.nextStation="Approach";
+ }else if(/localizer (captured|established|alive)|established on the localizer/.test(msg)){
+  s.approachStage="LOCALIZER";
+  atc=cs+", roger, localizer established. Maintain 3,000 feet until glideslope intercept unless your published procedure specifies otherwise. Report glideslope alive.";
+  hint=cs+", localizer established, maintaining 3,000 feet, will report glideslope alive.";
+  explanation="Localizador confirmado; mantener altitud asignada hasta interceptar la senda según la carta.";
+ }else if(/glideslope (alive|captured)|glide slope (alive|captured)|on the glide/.test(msg)){
+  s.approachStage="GLIDESLOPE";
+  atc=cs+", roger, glideslope reported. Continue the published approach and report established on final. Do not descend below charted minima.";
+  hint=cs+", glideslope reported, continuing published approach, will report established on final.";
+  explanation="Senda de planeo reportada; respetar mínimos publicados.";
+ }else if(/established on final|on final|final approach/.test(msg)){
+  s.approachStage="FINAL";
+  atc=cs+", roger, established on final runway "+ar+". Contact Tower on 118.300 and report callsign, runway and approach type.";
+  hint=cs+", established on final runway "+ar+", contacting Tower 118.300.";
+  explanation="Final confirmada y transferencia a Tower.";
+  s.nextStation="Tower";
+ }else if(/rn[a]?v/.test(msg)){
+  s.approachStage="RNAV";
+  atc=cs+", RNAV approach acknowledged runway "+ar+". Use the published RNAV procedure and charted altitudes; no waypoint or procedure data is loaded in this simulator. Report established on final.";
+  hint=cs+", RNAV approach runway "+ar+", flying published procedure, will report established.";
+  explanation="RNAV: usar carta publicada; no se inventan waypoints ni restricciones.";
+ }else if(/visual approach/.test(msg)){
+  s.approachStage="VISUAL";
+  atc=cs+", visual approach acknowledged runway "+ar+". Maintain visual separation as applicable and report established on final. Contact Tower on 118.300 when advised.";
+  hint=cs+", visual approach runway "+ar+", will report established on final.";
+  explanation="Aproximación visual simulada y transferencia posterior a Tower.";
+ }else{
+  s.approachStage=s.approachStage||"VECTORS";
+  atc=cs+", "+arr[0]+" Approach, radar contact. Descend and maintain 6,000 feet, expect runway "+ar+". For an ILS, expect vectors to intercept the localizer; maintain assigned altitude until established and report localizer alive, then glideslope alive. Use published chart data for fixes, frequencies and minima.";
+  hint=cs+", descending to 6,000 feet, expect runway "+ar+", will report localizer established.";
+  explanation="Secuencia por etapas: vectores, localizador, senda de planeo y final. Las cartas aportan frecuencias, fixes y mínimos.";
+ }
+ s.nextStation="Tower";
  }else if(/land|final|tower|vacated|runway/.test(msg)||phase==="Landing"){
    station="Tower";phase="Landing";frequency="118.300";atc=`${cs}, Tower. Runway ${ar}, cleared to land. Wind ${String(s.simWind||270).padStart(3,"0")} at 6 knots. After landing, vacate when able; hold clear of the runway and contact Ground on 121.900. Advise runway vacated.`;hint=`${cs}, cleared to land runway ${ar}, will vacate and contact Ground 121.900.`;explanation="Autorización de aterrizaje con viento e instrucciones para liberar pista.";s.nextStation="Ground";
  }else{atc=`${cs}, say again, please. ${station} is standing by. State your position and request.`;hint=`${station}, ${cs}, say again with your position and request.`;explanation="No identifiqué tu intención; repite la llamada con posición e intención.";}
