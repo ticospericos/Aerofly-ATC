@@ -230,6 +230,11 @@ function core(message,c,history){
    atc=cs+", runway "+ar+", cleared to land. Wind "+((s.weather&&s.weather.wind)||"variable")+". After landing, vacate when able and contact Ground on 121.900."+trafficAdvisory(s);
    hint=cs+", cleared to land runway "+ar+", "+cs+".";
    explanation="Autorización de aterrizaje simulada. Después de liberar la pista, contacta Ground.";
+  } else if(s.stage==="Landing"&&/\b(cleared to land|landing clearance)\b/i.test(msg)){
+   phase="Landing";s.stage="Landing";
+   atc=cs+", readback correct. Continue approach runway "+ar+". After landing, vacate when able and contact Ground on 121.900.";
+   hint=cs+", cleared to land runway "+ar+", continuing approach, "+cs+".";
+   explanation="Readback de la autorización de aterrizaje confirmado. Conserva la fase Landing hasta liberar la pista.";
   } else if(s.stage==="Approach"){
    phase="Approach";s.stage="Approach";station="Approach";frequency="124.000";
    atc=cs+", remain with "+arr[0]+" Approach. Landing clearance is not available yet. Report established on final to Approach, then contact Tower.";
