@@ -33,8 +33,8 @@ function core(message,c,history){
    const airportName=arr[0],runwayName=ar;
    const souls=/\b(\d{1,3})\s*(souls|persons|people|pax|passengers|on board)\b/i.exec(message);
    if(souls)s.personsOnBoard=souls[1];
-   const fuel=/\b(?:fuel|endurance)\D{0,20}(\d+\s*(?:minutes?|hours?|hrs?))\b/i.exec(message);
-   if(fuel)s.fuelEndurance=fuel[1];
+   const fuel=/\b(\d+\s*(?:minutes?|hours?|hrs?))\b/i.exec(message)||/\b(?:fuel|endurance)\D{0,20}(\d+\s*(?:minutes?|hours?|hrs?))\b/i.exec(message);
+   if(fuel)s.fuelEndurance=fuel[1]||fuel[2];
    const details=(s.personsOnBoard?" Souls on board "+s.personsOnBoard+".":" Confirm persons on board when able.")+(s.fuelEndurance?" Fuel endurance "+s.fuelEndurance+".":" Advise fuel endurance when able.");
    s.squawk="7700";phase="Emergency";
    if(s.emergencyStage==="INITIAL"||!s.emergencyStage){
