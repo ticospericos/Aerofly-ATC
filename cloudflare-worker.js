@@ -94,9 +94,9 @@ function core(message,c,history){
    explanation="Mantén posición antes de la pista. Cuando estés listo, llama a Tower.";
   } else if(s.stage==="Taxi"){
    phase="Taxi";s.stage="Taxi";
-   atc=cs+", continue taxi to runway "+dr+" and hold short. Contact Tower on 118.300 when holding short and ready for departure.";
-   hint=cs+", continuing to runway "+dr+", holding short, "+cs+".";
-   explanation="Continúa el rodaje y avisa cuando estés en el punto de espera.";
+   atc=cs+", roger. Continue as instructed and report when holding short.";
+   hint=cs+", continuing as instructed, will report holding short, "+cs+".";
+   explanation="El controlador confirma tu lectura de vuelta sin repetir toda la autorización de rodaje.";
   } else {
    phase="Taxi";s.stage="Taxi";
    atc=cs+", runway "+dr+" is assigned. Taxi to runway "+dr+" and hold short. Contact Tower on 118.300 when holding short and ready for departure.";
