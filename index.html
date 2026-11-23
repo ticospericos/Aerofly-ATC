@@ -413,7 +413,7 @@ button:disabled { opacity:.45; }
 
 <section class="card full">
   <div class="eyebrow">AIRPORT DIRECTORY</div>
-  <h2 class="section-title">Northern & Central California Airport Directory</h2>
+  <h2 class="section-title">Aerofly FS Airports & Runways</h2>
 
   <label for="airportSearch">Search airport or ICAO code</label>
   <input id="airportSearch" placeholder="Example: KSFO or San Francisco">
@@ -421,7 +421,7 @@ button:disabled { opacity:.45; }
   <div id="airportDirectory" class="log" style="margin-top:12px"></div>
 
   <p class="notice">
-    Airport selection is based on the Aerofly FS 4 airport database and regional coverage. Availability can vary by simulator version and scenery package.
+    Airport list and runway designations are transcribed from the pilot-provided Aerofly FS list. Runway data is not independently verified; use the runways shown in your simulator.
   </p>
 </section>
 
@@ -435,7 +435,40 @@ button:disabled { opacity:.45; }
 "use strict";
 
 const airports = [
-["San Francisco International","KSFO"],["Oakland International","KOAK"],["San José Mineta International","KSJC"],["Sacramento International","KSMF"],["Charles M. Schulz Sonoma County","KSTS"],["Monterey Regional","KMRY"],["Salinas Municipal","KSNS"],["Stockton Metropolitan","KSCK"],["Modesto City-County","KMOD"],["Napa County","KAPC"],["Sacramento Mather","KMHR"],["Sacramento Executive","KSAC"],["Travis Air Force Base","KSUU"],["Buchanan Field","KCCR"],["Livermore Municipal","KLVK"],["Hayward Executive","KHWD"],["Moffett Federal Airfield","KNUQ"],["Reid-Hillview","KRHV"],["Palo Alto","KPAO"],["San Carlos","KSQL"],["Half Moon Bay","KHAF"],["Watsonville Municipal","KWVI"],["Hollister Municipal","KCVH"],["Marina Municipal","KOAR"],["Gnoss Field","KDVO"],["Petaluma Municipal","KO69"],["Nut Tree","KVCB"],["Rio Vista Municipal","KO88"],["Tracy Municipal","KTCY"],["Lodi Airport","K1O3"],["San Martin Airport","KE16"],["Angwin-Parrett Field","K2O3"],["Auburn Municipal","KAUN"],["Beale Air Force Base","KBAB"],["Blue Canyon Nyack","KBLU"],["Byron Airport","KC83"],["Chico Regional","KCIC"],["Calaveras County-Maury Rasmussen Field","KCPU"],["Yolo County / Davis-Woodland-Winters","KDWA"],["Pine Mountain Lake","KE45"],["University Airport","KEDU"],["Nevada County Airport","KGOO"],["Westover Field / Amador County","KJAQ"],["Mesa Del Rey Airport","KKIC"],["Lincoln Regional","KLHM"],["Los Banos Municipal","KLSN"],["William Robert Johnston Municipal","KM90"],["Madera Municipal","KMAE"],["McClellan Airfield","KMCC"],["Merced Regional / Macready Field","KMCE"],["Castle Airport","KMER"],["Yuba County Airport","KMYV"],["Columbia Airport","KO22"],["Oakdale Airport","KO27"],["Cloverdale Municipal","KO60"],["Oroville Municipal","KOVE"],["Placerville Airport","KPVF"],["Rancho Murieta Airport","KRIU"],["Truckee Tahoe Airport","KTRK"],["Ukiah Municipal","KUKI"],["Willows-Glenn County","KWLW"],["The Sea Ranch Airport","CA51"]
+  ["Monterey Regional","KMRY",["28L","28R","01L","01R"]],
+  ["Salinas Municipal","KSNS",["31","26","08","13"]],
+  ["Hollister Municipal","KCVH",["31","24","13","06"]],
+  ["Watsonville Municipal","KWVI",["20","06","02","27"]],
+  ["San Martin Airport","KE16",["14","32"]],
+  ["Reid-Hillview","KRHV",["13L","13R","31L","31R"]],
+  ["San José Mineta International","KSJC",["30L","30R","12L","12R"]],
+  ["Modesto City-County","KMOD",["28L","28R","10L","10R"]],
+  ["Moffett Federal Airfield","KNUQ",["32L","32R","14L","14R"]],
+  ["Palo Alto","KPAO",["13","31"]],
+  ["Tracy Municipal","KTCY",["30","26","12","08"]],
+  ["Stockton Metropolitan","KSCK",["29L","29R","11L","11R"]],
+  ["Livermore Municipal","KLVK",["25L","25R","07L","07R"]],
+  ["San Carlos","KSQL",["12","30"]],
+  ["Half Moon Bay","KHAF",["12","30"]],
+  ["San Francisco International","KSFO",["01L","01R","28L","28R","10L","10R","19L","19R"]],
+  ["Hayward Executive","KHWD",["28L","28R","10L","10R"]],
+  ["Oakland International","KOAK",["30","12","28L","28R","10L","10R","33","15"]],
+  ["Byron Airport","KC83",["30","23","12","05"]],
+  ["Buchanan Field","KCCR",["01L","01R","32L","32R","19L","19R","14L","14R"]],
+  ["Lodi Airport","K1O3",["30","26","12","08"]],
+  ["Rio Vista Municipal","KO88",["33","25","07","15"]],
+  ["Gnoss Field (Novato)","KDVO",["13","31"]],
+  ["Petaluma Municipal","KO69",["11","29"]],
+  ["Napa County","KAPC",["06","01L","01R","24","19L","19R"]],
+  ["Charles M. Schulz Sonoma County","KSTS",["02","32","20","14"]],
+  ["Angwin-Parrett Field","K203",["16","34"]],
+  ["Travis Air Force Base","KSUU",["03L","03R","21R","32","21-2","21L"]],
+  ["Nut Tree","KVCB",["02","20"]],
+  ["Yolo County Airport","KDWA",["16","34"]],
+  ["University Airport","KEDU",["35","17"]],
+  ["Sacramento Executive","KSAC",["02","30","20","12"]],
+  ["Sacramento Mather","KMHR",["04L","04R","22L","22R"]],
+  ["Sacramento International","KSMF",["35L","35R","17L","17R"]]
 ];
 
 const $ = id => document.getElementById(id);
@@ -554,6 +587,11 @@ function updateDirectory() {
     const name = document.createElement("strong");
     name.textContent = a[0] + " · " + a[1];
 
+    const runwayInfo = document.createElement("div");
+    runwayInfo.className = "notice";
+    runwayInfo.style.marginTop = "5px";
+    runwayInfo.textContent = "Runways: " + ((a[2] && a[2].length) ? a[2].join(" · ") : "Not provided");
+
     const actions = document.createElement("div");
     actions.className = "row";
     actions.style.marginTop = "7px";
@@ -575,7 +613,7 @@ function updateDirectory() {
     };
 
     actions.append(dep,arr);
-    item.append(name,actions);
+    item.append(name,runwayInfo,actions);
     directory.append(item);
   });
 
