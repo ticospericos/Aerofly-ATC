@@ -922,10 +922,10 @@ $("micButton").onclick = () => {
         const ranked = choices.map((text, index) => {
           const candidate = normalizeAviationTranscript(text);
           const phraseScore = aviationPhrases.reduce((score, pattern) => score + (pattern.test(candidate) ? 6 : 0), 0);
-          const radioWords = /\\b(clearance|ground|tower|departure|center|approach|runway|altitude|climb|climbing|descend|descent|landing|takeoff|taxi|holding|short|inbound|final|squawk|frequency)\\b/gi;
+          const radioWords = /\b(clearance|ground|tower|departure|center|approach|runway|altitude|climb|climbing|descend|descent|landing|takeoff|taxi|holding|short|inbound|final|squawk|frequency)\b/gi;
           const wordScore = (candidate.match(radioWords) || []).length * 1.25;
           const confidenceScore = typeof result[index]?.confidence === "number" ? result[index].confidence * 2 : 0;
-          const completenessScore = candidate.trim().split(/\\s+/).length >= 3 ? 0.5 : 0;
+          const completenessScore = candidate.trim().split(/\s+/).length >= 3 ? 0.5 : 0;
           return { text, score: phraseScore + wordScore + confidenceScore + completenessScore - index * 0.1 };
         }).sort((x, y) => y.score - x.score);
         const spoken = normalizeAviationTranscript(ranked[0].text);
