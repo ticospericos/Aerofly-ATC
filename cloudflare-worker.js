@@ -48,7 +48,7 @@ function spokenDigits(text){
 }
 function readbackCheck(message,s){
  var n=spokenDigits(message),assigned=s.assignedDepartureRunway||"",result={ok:true,missing:[],errors:[]};
- var runwayMatch=n.match(/\brunway\s*(\d{1,2})\s*(left|right|center)?\b/);
+ var runwayMatch=n.match(/\brunway\s*(\d{1,2})\s*(left|right|center|l|r|c)?\b/);
  var runwayRead=runwayMatch?runwayMatch[1]+(runwayMatch[2]?runwayMatch[2][0].toUpperCase():""):"";
  var squawkMatch=n.match(/\bsquawk\s*(\d{4})\b/);
  var altMatch=n.match(/\b(?:initial altitude|altitude|maintain|climb(?:ing)?(?: and maintain)?)\s*(\d{4,6})\s*(?:feet|ft)?\b|\b(\d{4,6})\s*(?:feet|ft)\b/);
@@ -93,7 +93,7 @@ function core(message,c,history){
   s.initialAltitude=s.aircraftProfile.initialAltitude;
   s.assignedCruiseAltitude=s.aircraftProfile.cruiseAltitude;
   s.approachSpeed=s.aircraftProfile.approachSpeed;
-  s.squawk=String(1000+Math.floor(Math.random()*7000));
+  do{s.squawk=Array.from({length:4},function(){return Math.floor(Math.random()*8);}).join("");}while(["7500","7600","7700"].includes(s.squawk));
   s.stage="Preflight";
   s.initialized=true;
  }
