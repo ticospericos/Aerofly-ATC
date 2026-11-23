@@ -15,26 +15,114 @@ function core(message,c,history){
  var cs=clean(c.callsign||"November Niner Charlie Bravo",80),ac=clean(c.aircraft||"Learjet 45",50),s=stateFrom(history,c);
  var emergency=/\b(mayday|pan.?pan|engine fail|engine out|fire|smoke|medical|bird strike|emergency)\b/i.test(message);
  var called="";
- var calls=[["Clearance",/\b(clearance delivery|clearance)\b/i],["Ground",/\bground\b/i],["Tower",/\btower\b/i],["Departure",/\bdeparture\b/i],["Center",/\b(center)\b/i],["Approach",/\b(approach)\b/i],["ATIS",/\b(atis|information)\b/i],["Unicom",/\b(unicom|traffic)\b/i]];
+ var calls=[["Clearance",/\b(clearance delivery|clearance)\b/i],["Ground",/\bground\b/i],["Tower",/\btower\b/i],["Departure",/\bdeparture\b/i],["Center",/\b(center)\b/i],["Approach",/\bapproach\b/i],["ATIS",/\b(atis|information)\b/i],["Unicom",/\b(unicom|traffic)\b/i]];
  for(var ci=0;ci<calls.length;ci++){if(calls[ci][1].test(msg)){called=calls[ci][0];break;}}
+ var stage=s.stage||"Preflight";
+ if(!called){
+  if(stage==="ClearedToTaxi"&&/\b(ready to taxi|request taxi|taxi clearance|taxi)\b/i.test(msg))called="Ground";
+  else if((stage==="Taxi"||stage==="HoldingShort")&&/\b(ready for departure|ready for takeoff|request takeoff|ready for take.?off)\b/i.test(msg))called="Tower";
+  else if(stage==="Taxi"&&/\b(holding short|at the hold short|short of runway|at the runway)\b/i.test(msg))called="Ground";
+  else if(stage==="Takeoff"&&/\b(airborne|passing|climbing|off the ground|just departed)\b/i.test(msg))called="Departure";
+  else if(stage==="Departure"&&/\b(established en.?route|level at|leveling at|cruise altitude|contact center|center)\b/i.test(msg))called="Center";
+  else if(stage==="Cruise"&&/\b(request descent|ready to descend|descending|inbound|request approach|approach)\b/i.test(msg))called="Approach";
+  else if(stage==="Approach"&&/\b(established on final|on final|final approach|visual|runway in sight)\b/i.test(msg))called="Tower";
+  else if(stage==="Landing"&&/\b(vacated|clear of runway|runway clear|off the runway)\b/i.test(msg))called="Ground";
+ }
  var first=!s.assignedDepartureRunway;
- if(first){s.simWind=270;s.assignedDepartureRunway=runway(dep[2],s.simWind);s.assignedArrivalRunway=runway(arr[2],s.simWind);s.initialAltitude=c.flightRules==="VFR"?"5,500 feet":"5,000 feet";s.squawk=String(1000+Math.floor(Math.random()*7000));s.stage="Clearance";}
- if(!called&&(s.stage==="ClearedToTaxi"||s.stage==="Taxi")&&/\b(ready to taxi|request taxi|taxi clearance|taxi)\b/i.test(msg))called="Ground";
- if(!called&&(s.stage==="Taxi"||s.stage==="HoldingShort")&&/\b(ready for departure|ready for takeoff|request takeoff)\b/i.test(msg))called="Tower";
- if(!called&&s.stage==="Taxi"&&/\b(holding short|at the hold short|short of runway)\b/i.test(msg))called="Ground";
- if(!called&&(s.stage==="Takeoff"||s.stage==="Departure")&&/\b(airborne|passing|climbing|off the ground)\b/i.test(msg))called="Departure";
+ if(first){
+  s.simWind=270;
+  s.assignedDepartureRunway=runway(dep[2],s.simWind);
+  s.assignedArrivalRunway=runway(arr[2],s.simWind);
+  s.initialAltitude=c.flightRules==="VFR"?"5,500 feet":"5,000 feet";
+  s.squawk=String(1000+Math.floor(Math.random()*7000));
+  s.stage="Preflight";
+  s.initialized=true;
+ }
  var dr=s.assignedDepartureRunway||"assigned runway",ar=s.assignedArrivalRunway||"assigned runway";
- var station=called||clean(c.station||"Clearance",24),phase=clean(c.phase||s.phase||"Preflight",24),frequency="",atc="",hint="",explanation="";
- if(emergency){station=called&&called!=="ATIS"?called:"Tower";phase="Emergency";frequency="121.500";atc=cs+", emergency acknowledged. State nature of distress, intentions, persons on board and fuel endurance. Maintain present heading if able.";hint=cs+", MAYDAY/PAN-PAN, "+ac+", "+clean(message,120)+". Request immediate assistance.";explanation="Declara la emergencia e informa naturaleza, intenciones, personas a bordo y combustible.";s.stage="Emergency";}
- else if(station==="ATIS"){var w=270;s.atis=s.atis&&s.atis.airport===dep[1]?s.atis:{airport:dep[1],information:"Alpha",wind:"270 at 6 knots",visibility:"10 miles",runway:dr,conditions:"Few clouds"};frequency="126.000";atc=dep[0]+" information "+s.atis.information+". Wind "+s.atis.wind+". Visibility "+s.atis.visibility+". Few clouds. Runway "+dr+" in use. Advise you have information "+s.atis.information+". Simulated ATIS.";hint="Information "+s.atis.information+" received, "+cs+".";explanation="ATIS ficticio, no sincronizado con el clima de Aerofly.";}
- else if(station==="Clearance"||first){station="Clearance";phase="Preflight";frequency="121.700";s.stage="ClearedToTaxi";atc=cs+", cleared to "+arr[0]+" airport, "+(c.flightRules||"IFR")+" departure. Runway "+dr+". Initial altitude "+s.initialAltitude+". Expect cruise clearance after departure. Squawk "+s.squawk+". Advise when ready to taxi.";hint=cs+", cleared to "+arr[0]+", runway "+dr+", initial altitude "+s.initialAltitude+", squawk "+s.squawk+". Ready to taxi.";explanation="Lee de vuelta destino, pista, altitud inicial y código transponder.";}
- else if(station==="Ground"){frequency="121.900";if(s.stage==="Landing"||/vacated|clear of runway|runway clear/.test(msg)){phase="Taxi";s.stage="Parked";atc=cs+", roger, runway vacated. Taxi to parking via published airport taxiways. Monitor Ground on 121.900.";hint=cs+", taxi to parking, "+cs+".";explanation="Después de liberar la pista, continúa a plataforma por las calles señalizadas del simulador.";}else if(s.stage==="Taxi"&&/holding short|at the hold short|short of runway/.test(msg)){phase="Holding Short";s.stage="HoldingShort";atc=cs+", roger, holding short runway "+dr+". Contact Tower on 118.300 when ready for departure.";hint=cs+", holding short runway "+dr+", will contact Tower when ready, "+cs+".";explanation="Ya estás en punto de espera. Cuando estés listo, llama a Tower para solicitar salida.";}else if(s.stage==="HoldingShort"){phase="Holding Short";atc=cs+", roger. Remain holding short runway "+dr+". Contact Tower on 118.300 when ready for departure.";hint=cs+", holding short runway "+dr+", "+cs+".";explanation="Mantén posición antes de la pista y llama a Tower cuando estés listo.";}else if(s.stage==="Taxi"){phase="Taxi";atc=cs+", continue taxi to runway "+dr+" and hold short. Contact Tower on 118.300 when holding short and ready for departure.";hint=cs+", continuing to runway "+dr+", holding short, "+cs+".";explanation="Continúa el rodaje. Al llegar al punto de espera, informa holding short.";}else{phase="Taxi";s.stage="Taxi";atc=cs+", runway "+dr+" is assigned. Taxi to runway "+dr+" and hold short. Contact Tower on 118.300 when holding short and ready for departure.";hint=cs+", taxi to runway "+dr+", hold short, "+cs+".";explanation="Lee de vuelta la pista asignada y confirma que mantendrás posición antes de la pista.";} }
- else if(station==="Tower"){frequency="118.300";if(/vacated|clear of runway|runway clear/.test(msg)){phase="Taxi";s.stage="Taxi";station="Ground";frequency="121.900";atc=cs+", roger, welcome back. Taxi clear of the runway and proceed to parking via published taxiways. Contact Ground if assistance is required.";hint=cs+", taxi to parking, "+cs+".";}else if(/land|final|established/.test(msg)||s.stage==="Approach"){phase="Landing";s.stage="Landing";atc=cs+", runway "+ar+", cleared to land. Wind calm. After landing, vacate when able and contact Ground on 121.900.";hint=cs+", cleared to land runway "+ar+", "+cs+".";explanation="Autorización de aterrizaje simulada. Contacta Ground después de liberar la pista.";}else{phase="Takeoff";s.stage="Takeoff";atc=cs+", runway "+dr+", cleared for takeoff. Wind 270 at 6 knots. After departure contact Departure on 124.600.";hint=cs+", cleared for takeoff runway "+dr+", contact Departure after departure, "+cs+".";explanation="Autorización de despegue simulada. Después llama a Departure.";}}
- else if(station==="Departure"){phase="Departure";frequency="124.600";s.stage="Departure";atc=cs+", radar contact. Climb and maintain "+s.initialAltitude+". When established en route, contact Oakland Center on 127.000.";hint=cs+", climbing to "+s.initialAltitude+", contact Oakland Center 127.000, "+cs+".";explanation="Salida confirma el ascenso y transfiere al centro.";}
- else if(station==="Center"){phase="Cruise";frequency="127.000";s.stage="Cruise";if(/descend|descent|approach|destination|inbound/.test(msg)){station="Approach";phase="Approach";frequency="124.000";s.stage="Approach";atc=cs+", descend and maintain 6,000 feet. Expect runway "+ar+". Contact "+arr[0]+" Approach on 124.000.";hint=cs+", descending to 6,000 feet, expect runway "+ar+", "+cs+".";}else{atc=cs+", Oakland Center, roger. Maintain your last assigned altitude. Advise when ready to descend.";hint="Maintaining assigned altitude, "+cs+".";explanation="En ruta: confirma tu nivel asignado y solicita descenso cuando corresponda.";}}
- else if(station==="Approach"){phase="Approach";frequency="124.000";s.stage="Approach";atc=cs+", "+arr[0]+" Approach. Continue approach runway "+ar+". Contact Tower on 118.300 when established on final.";hint=cs+", continuing approach runway "+ar+", will contact Tower on 118.300.";explanation="Confirma pista y transferencia a torre.";}
- else if(station==="Unicom"){frequency="122.800";atc=dep[0]+" traffic, "+cs+", radio call received. Continue to announce position and intentions.";hint=dep[0]+" traffic, "+cs+", [position and intentions].";explanation="UNICOM es frecuencia de autoanuncio, no control ATC.";}
- else{station="Clearance";phase="Preflight";frequency="121.700";atc=cs+", say again. Clearance Delivery.";hint="Clearance Delivery, "+cs+", say again.";explanation="No identifiqué la estación llamada. Repite tu llamada inicial.";}
+ var station=first?"Clearance":(called||clean(c.station||s.lastStation||"Clearance",24));
+ var phase=clean(c.phase||s.phase||"Preflight",24),frequency="",atc="",hint="",explanation="";
+ if(emergency){
+  station=called&&called!=="ATIS"?called:"Tower";phase="Emergency";frequency="121.500";
+  atc=cs+", emergency acknowledged. State the nature of the emergency, your intentions, persons on board and fuel endurance. Maintain present heading and altitude if able.";
+  hint=cs+", MAYDAY/PAN-PAN, "+ac+", "+clean(message,120)+". Request immediate assistance.";
+  explanation="Declara la emergencia e informa naturaleza, intenciones, personas a bordo y combustible.";
+  s.stage="Emergency";
+ } else if(station==="ATIS"){
+  s.atis=s.atis&&s.atis.airport===dep[1]?s.atis:{airport:dep[1],information:"Alpha",wind:"270 at 6 knots",visibility:"10 miles",runway:dr,conditions:"Few clouds"};
+  frequency="126.000";atc=dep[0]+" information "+s.atis.information+". Wind "+s.atis.wind+". Visibility "+s.atis.visibility+". Few clouds. Runway "+dr+" in use. Advise you have information "+s.atis.information+". Simulated ATIS.";
+  hint="Information "+s.atis.information+" received, "+cs+".";explanation="ATIS ficticio, no sincronizado con el clima de Aerofly.";
+ } else if(station==="Clearance"){
+  phase="Preflight";frequency="121.700";s.stage="ClearedToTaxi";
+  atc=cs+", cleared to "+arr[0]+" airport, "+(c.flightRules||"IFR")+" departure. Runway "+dr+". Initial altitude "+s.initialAltitude+". Expect further clearance after departure. Squawk "+s.squawk+". Advise when ready to taxi.";
+  hint=cs+", cleared to "+arr[0]+", runway "+dr+", initial altitude "+s.initialAltitude+", squawk "+s.squawk+". Ready to taxi.";
+  explanation="Lee de vuelta destino, pista, altitud inicial y código transponder.";
+ } else if(station==="Ground"){
+  frequency="121.900";
+  if(s.stage==="Landing"||s.stage==="Parked"||/\b(vacated|clear of runway|runway clear|off the runway)\b/i.test(msg)){
+   phase="Taxi In";s.stage="Parked";
+   atc=cs+", roger, runway vacated. Taxi to parking via the taxiways and markings shown in your simulator. Monitor Ground on 121.900.";
+   hint=cs+", taxi to parking, "+cs+".";explanation="Después de liberar la pista, sigue las calles señalizadas en Aerofly hasta el estacionamiento.";
+  } else if(s.stage==="HoldingShort"||/\b(holding short|at the hold short|short of runway|at the runway)\b/i.test(msg)){
+   phase="Holding Short";s.stage="HoldingShort";
+   atc=cs+", roger, holding short runway "+dr+". Contact Tower on 118.300 when ready for departure.";
+   hint=cs+", holding short runway "+dr+", will contact Tower when ready, "+cs+".";
+   explanation="Mantén posición antes de la pista. Cuando estés listo, llama a Tower.";
+  } else if(s.stage==="Taxi"){
+   phase="Taxi";s.stage="Taxi";
+   atc=cs+", continue taxi to runway "+dr+" and hold short. Contact Tower on 118.300 when holding short and ready for departure.";
+   hint=cs+", continuing to runway "+dr+", holding short, "+cs+".";
+   explanation="Continúa el rodaje y avisa cuando estés en el punto de espera.";
+  } else {
+   phase="Taxi";s.stage="Taxi";
+   atc=cs+", runway "+dr+" is assigned. Taxi to runway "+dr+" and hold short. Contact Tower on 118.300 when holding short and ready for departure.";
+   hint=cs+", taxi to runway "+dr+", hold short, "+cs+".";
+   explanation="Lee de vuelta la pista asignada y mantén posición antes de entrar en ella.";
+  }
+ } else if(station==="Tower"){
+  frequency="118.300";
+  if(s.stage==="Approach"||/\b(established on final|on final|final approach|runway in sight|visual approach)\b/i.test(msg)){
+   phase="Landing";s.stage="Landing";
+   atc=cs+", runway "+ar+", cleared to land. Wind calm. After landing, vacate when able and contact Ground on 121.900.";
+   hint=cs+", cleared to land runway "+ar+", "+cs+".";explanation="Autorización de aterrizaje simulada. Después de liberar la pista, contacta Ground.";
+  } else if(/\b(vacated|clear of runway|runway clear|off the runway)\b/i.test(msg)){
+   station="Ground";frequency="121.900";phase="Taxi In";s.stage="Parked";
+   atc=cs+", roger, runway vacated. Taxi to parking via the taxiways and markings shown in your simulator. Monitor Ground on 121.900.";
+   hint=cs+", taxi to parking, "+cs+".";explanation="Sigue las calles señalizadas en Aerofly hasta el estacionamiento.";
+  } else {
+   phase="Takeoff";s.stage="Takeoff";
+   atc=cs+", runway "+dr+", cleared for takeoff. Wind 270 at 6 knots. After departure contact Departure on 124.600.";
+   hint=cs+", cleared for takeoff runway "+dr+", contact Departure after departure, "+cs+".";
+   explanation="Autorización de despegue simulada. Después del despegue, llama a Departure.";
+  }
+ } else if(station==="Departure"){
+  phase="Departure";frequency="124.600";s.stage="Departure";
+  atc=cs+", radar contact. Climb and maintain "+s.initialAltitude+". When established en route, contact Oakland Center on 127.000.";
+  hint=cs+", climbing to "+s.initialAltitude+", will contact Oakland Center 127.000, "+cs+".";
+  explanation="Confirma el ascenso y contacta Center cuando estés establecido en ruta.";
+ } else if(station==="Center"){
+  frequency="127.000";
+  if(/\b(request descent|ready to descend|descending|inbound|request approach|approach)\b/i.test(msg)){
+   station="Approach";phase="Approach";frequency="124.000";s.stage="Approach";
+   atc=cs+", "+arr[0]+" Approach. Descend and maintain 6,000 feet. Expect runway "+ar+". Contact Tower on 118.300 when established on final.";
+   hint=cs+", descending to 6,000 feet, expect runway "+ar+", "+cs+".";
+   explanation="Descenso simulado hacia destino. Cuando estés establecido en final, llama a Tower.";
+  } else {
+   phase="Cruise";s.stage="Cruise";
+   atc=cs+", Oakland Center, roger. Maintain your last assigned altitude. Advise when ready to descend.";
+   hint="Maintaining assigned altitude, "+cs+".";explanation="En ruta: confirma tu altitud asignada y solicita descenso cuando corresponda.";
+  }
+ } else if(station==="Approach"){
+  phase="Approach";frequency="124.000";s.stage="Approach";
+  atc=cs+", "+arr[0]+" Approach. Continue approach runway "+ar+". Contact Tower on 118.300 when established on final.";
+  hint=cs+", continuing approach runway "+ar+", will contact Tower on 118.300.";explanation="Confirma la pista prevista y contacta Tower al establecerte en final.";
+ } else if(station==="Unicom"){
+  frequency="122.800";atc=dep[0]+" traffic, "+cs+", radio call received. Continue to announce position and intentions.";
+  hint=dep[0]+" traffic, "+cs+", [position and intentions].";explanation="UNICOM es frecuencia de autoanuncio, no control ATC.";
+ } else {
+  station="Clearance";phase="Preflight";frequency="121.700";
+  atc=cs+", say again. Clearance Delivery.";hint="Clearance Delivery, "+cs+", say again.";
+  explanation="No identifiqué la estación llamada. Repite tu llamada inicial.";
+ }
  s.phase=phase;s.lastStation=station;s.frequency=frequency;
  return {station:station,phase:phase,frequency:frequency,atc:atc,hint:hint,explanation:explanation,state:s,engine:"AEROFLY ATC CORE"};
 }
