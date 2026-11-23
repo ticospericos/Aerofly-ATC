@@ -814,6 +814,8 @@ $("send").onclick = async () => {
       $("stationLabel").textContent = station.toUpperCase();
     }
 
+    if (data.frequency) $("frequency").value = data.frequency;
+
     if (data.phase) {
       phase = data.phase;
       document.querySelectorAll("#phases button").forEach(button => {
@@ -828,7 +830,8 @@ $("send").onclick = async () => {
     $("hintExplain").textContent = data.explanation || "Read back the controller's instruction accurately.";
     setAtc(data.atc);
     $("transcript").value = "";
-    $("micStatus").textContent = "ATC CONNECTED";
+    $("micStatus").textContent = data.engine === "AEROFLY ATC CORE" ? "ATC · CORE BACKUP" : "ATC · GEMINI";
+    if (data.fallbackReason) log("BACKUP ENGINE", "Gemini unavailable; AEROFLY ATC CORE took over. " + data.fallbackReason);
   } catch (error) {
     log("CONNECTION ERROR", error.message);
     $("atcText").textContent = "Unable to reach AEROFLY-ATC. Check your connection and transmit again.";
