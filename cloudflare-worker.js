@@ -13,7 +13,7 @@ function stateFrom(history,c){if(c.flightState&&typeof c.flightState==="object"&
 function spokenDigits(text){
  var map={zero:"0",oh:"0",one:"1",two:"2",three:"3",four:"4",five:"5",six:"6",seven:"7",eight:"8",nine:"9",niner:"9"};
  var value=String(text||"").toLowerCase().replace(/\b(zero|oh|one|two|three|four|five|six|seven|eight|nine|niner)\b/g,function(x){return map[x];}).replace(/\b(\d)\s+thousand\b/g,function(_,n){return String(Number(n)*1000);}).replace(/,/g,"");
- for(var i=0;i<3;i++)value=value.replace(/\b(\d)\s+(\d)\b/g,"$1$2");
+ for(var i=0;i<3;i++)value=value.replace(/\b(\d+)\s+(\d+)\b/g,"$1$2");
  return value;
 }
 function readbackCheck(message,s){
