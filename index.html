@@ -144,6 +144,40 @@ button.warn {
   border-color:#8b3a43;
 }
 button:disabled { opacity:.45; }
+#phases {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:8px;
+}
+#phases button {
+  min-height:48px;
+  padding:9px 6px;
+  font-size:12px;
+  border-radius:12px;
+  background:#0b1a2a;
+  border-color:#2b415a;
+}
+#phases button.active {
+  color:#07111f;
+  background:var(--green);
+  border-color:var(--green);
+  box-shadow:0 0 0 2px #55d69e33;
+}
+.phase-current {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin:10px 0 12px;
+  padding:11px 12px;
+  background:#0a1a29;
+  border:1px solid #29435e;
+  border-radius:12px;
+}
+.phase-current strong { color:var(--green); letter-spacing:.8px; }
+@media(max-width:420px) {
+  #phases { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
 .tabs {
   display:flex;
   gap:7px;
@@ -365,29 +399,6 @@ button:disabled { opacity:.45; }
 </section>
 
 <section class="card">
-  <div class="eyebrow">EMERGENCY COMMUNICATIONS</div>
-  <h2 class="section-title">Declare an Emergency</h2>
-
-  <label for="emergencyType">Emergency situation</label>
-  <select id="emergencyType">
-    <option value="engine">Engine failure</option>
-    <option value="smoke">Smoke / Fire onboard</option>
-    <option value="medical">Medical emergency</option>
-    <option value="pressurization">Cabin pressurization problem</option>
-    <option value="communications">Radio communication failure</option>
-    <option value="other">Other emergency</option>
-  </select>
-
-  <button class="warn" id="declare" style="width:100%;margin-top:10px">
-    MAYDAY / PAN-PAN
-  </button>
-
-  <p class="notice">
-    Flight simulation only. This panel does not provide real emergency procedures.
-  </p>
-</section>
-
-<section class="card">
   <div class="eyebrow">RADIO LOG</div>
   <h2 class="section-title">Transmission History</h2>
   <div class="log" id="log">
@@ -401,6 +412,14 @@ button:disabled { opacity:.45; }
 <section class="card full">
   <div class="eyebrow">FLIGHT PHASE</div>
   <h2 class="section-title">Update Flight Phase</h2>
+
+  <div class="phase-current">
+    <div>
+      <div class="eyebrow">CURRENT FLIGHT PHASE</div>
+      <strong id="phaseName">PREFLIGHT</strong>
+    </div>
+    <span class="status" id="phaseDescription">Before departure</span>
+  </div>
 
   <div class="tabs" id="phases">
     <button class="active" data-phase="Preflight">Preflight</button>
@@ -680,7 +699,20 @@ $("phases").addEventListener("click",e => {
     b.classList.toggle("active",b === button);
   });
 
+  const phaseDescriptions = {
+    Preflight:"Before departure",
+    Taxi:"Taxiing to the runway",
+    Takeoff:"Takeoff and initial climb",
+    Departure:"Leaving the departure area",
+    Cruise:"En route",
+    Approach:"Arriving and descending",
+    Landing:"Landing and runway vacated",
+    Emergency:"Emergency situation"
+  };
+
   $("phaseStatus").textContent = phase.toUpperCase();
+  $("phaseName").textContent = phase.toUpperCase();
+  $("phaseDescription").textContent = phaseDescriptions[phase] || "";
 
   log("FLIGHT PHASE",phase);
 });
@@ -743,8 +775,13 @@ $("send").onclick = () => {
   const lower = text.toLowerCase();
 
   if (/mayday|pan-pan|engine failure|engine shut|fire|smoke|emergency/.test(lower)) {
+    const emergencyDetail = /engine failure|engine shut/.test(lower)
+      ? "Engine failure reported. Say your present position, altitude, souls on board, and intentions."
+      : /smoke|fire/.test(lower)
+      ? "Smoke or fire reported. Say your present position, altitude, souls on board, and intentions."
+      : "Emergency call acknowledged. Say your present position, altitude, souls on board, and intentions.";
     setAtc(
-      `${callsign}, MAYDAY acknowledged. Say the nature of the emergency, souls on board, fuel remaining, and your intentions.`
+      `${callsign}, roger, MAYDAY acknowledged. ${emergencyDetail}`
     );
   } else if (station === "ATIS") {
     setAtc(
@@ -785,46 +822,6 @@ $("send").onclick = () => {
 
 $("clear").onclick = () => {
   $("transcript").value = "";
-};
-
-$("declare").onclick = () => {
-  const c = $("callsign").value.trim() || "November Niner Charlie Bravo";
-  const type = $("emergencyType").value;
-
-  const calls = {
-    engine:
-      `Mayday, Mayday, Mayday. [Controller], ${c}, Learjet 45, engine failure. Request priority handling and assistance.`,
-
-    smoke:
-      `Mayday, Mayday, Mayday. [Controller], ${c}, Learjet 45, smoke reported onboard. Request priority handling.`,
-
-    medical:
-      `Pan-Pan, Pan-Pan, Pan-Pan. [Controller], ${c}, medical emergency onboard. Request priority handling.`,
-
-    pressurization:
-      `Mayday, Mayday, Mayday. [Controller], ${c}, cabin pressurization problem. Request priority handling.`,
-
-    communications:
-      `Radio communication failure. Use only the appropriate procedure for your flight simulation scenario.`,
-
-    other:
-      `Mayday, Mayday, Mayday. [Controller], ${c}, emergency situation. Request priority handling.`
-  };
-
-  phase = "Emergency";
-  $("phaseStatus").textContent = "EMERGENCY";
-
-  document.querySelectorAll("#phases button").forEach(b => {
-    b.classList.toggle("active",b.dataset.phase === "Emergency");
-  });
-
-  $("transcript").value = calls[type];
-
-  $("hintText").textContent = calls[type];
-  $("hintExplain").textContent =
-    "This is a suggested simulation radio call. Adapt it to your scenario.";
-
-  log("EMERGENCY HINT",calls[type],"you emergency");
 };
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
