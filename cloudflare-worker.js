@@ -21,9 +21,9 @@ function core(message,c,history){
  for(var ci=0;ci<calls.length;ci++){if(calls[ci][1].test(msg)){called=calls[ci][0];break;}}
  var first=!s.assignedDepartureRunway;
  if(first){s.simWind=270;s.assignedDepartureRunway=runway(dep[2],s.simWind);s.assignedArrivalRunway=runway(arr[2],s.simWind);s.initialAltitude=c.flightRules==="VFR"?"5,500 feet":"5,000 feet";s.squawk=String(1000+Math.floor(Math.random()*7000));s.stage="Clearance";}
- if(!called&&s.stage==="ClearedToTaxi"&&/\b(ready to taxi|request taxi|taxi clearance)\\b/i.test(msg))called="Ground";
- if(!called&&s.stage==="Taxi"&&/\b(holding short|ready for departure|ready for takeoff)\\b/i.test(msg))called="Tower";
- if(!called&&(s.stage==="Takeoff"||s.stage==="Departure")&&/\b(airborne|passing|climbing|off the ground)\\b/i.test(msg))called="Departure";
+ if(!called&&s.stage==="ClearedToTaxi"&&/\b(ready to taxi|request taxi|taxi clearance)\b/i.test(msg))called="Ground";
+ if(!called&&s.stage==="Taxi"&&/\b(holding short|ready for departure|ready for takeoff)\b/i.test(msg))called="Tower";
+ if(!called&&(s.stage==="Takeoff"||s.stage==="Departure")&&/\b(airborne|passing|climbing|off the ground)\b/i.test(msg))called="Departure";
  var dr=s.assignedDepartureRunway||"assigned runway",ar=s.assignedArrivalRunway||"assigned runway";
  var station=called||clean(c.station||"Clearance",24),phase=clean(c.phase||s.phase||"Preflight",24),frequency="",atc="",hint="",explanation="";
  if(emergency){station=called&&called!=="ATIS"?called:"Tower";phase="Emergency";frequency="121.500";atc=cs+", emergency acknowledged. State nature of distress, intentions, persons on board and fuel endurance. Maintain present heading if able.";hint=cs+", MAYDAY/PAN-PAN, "+ac+", "+clean(message,120)+". Request immediate assistance.";explanation="Declara la emergencia e informa naturaleza, intenciones, personas a bordo y combustible.";s.stage="Emergency";}
