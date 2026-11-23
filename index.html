@@ -322,6 +322,20 @@ button:disabled { opacity:.45; }
 
 
 
+<section class="card full" id="flightPlanner">
+  <div class="between">
+    <div><div class="eyebrow">FLIGHT PLANNER</div><h2 class="section-title">Saved Routes & Waypoints</h2></div>
+    <span class="status">LOCAL PLANS</span>
+  </div>
+  <div class="grid">
+    <div><label for="planName">Plan name</label><input id="planName" placeholder="Example: Monterey to San Francisco"></div>
+    <div><label for="planRoute">Route / waypoints (optional)</label><input id="planRoute" placeholder="Example: SNS V27 SAC"></div>
+    <div><label for="savedPlans">Saved flight plans</label><select id="savedPlans"><option value="">No saved plans yet</option></select></div>
+  </div>
+  <div class="row" style="margin-top:10px"><button class="primary" id="savePlan">Save Current Plan</button><button id="loadPlan">Load Plan</button><button id="deletePlan">Delete Plan</button></div>
+  <div class="notice" id="planStatus" style="margin-top:8px">Save IFR/VFR routes on this device and reuse them for future flights.</div>
+</section>
+
 <section class="card full">
   <div class="between">
     <div>
@@ -471,7 +485,42 @@ let conversationHistory = [];
 let flightState = {};
 let currentFrequency = "";
 const SESSION_KEY = "aerofly-atc-session-v2";
+const PLAN_KEY = "aerofly-atc-flight-plans-v1";
 let activeSession = false;
+
+function getSavedPlans() {
+  try { const value = JSON.parse(localStorage.getItem(PLAN_KEY) || "[]"); return Array.isArray(value) ? value : []; }
+  catch (_) { return []; }
+}
+function refreshSavedPlans(selectedId="") {
+  const select = $("savedPlans"); if (!select) return;
+  const plans = getSavedPlans(); select.innerHTML = "";
+  if (!plans.length) { const option=document.createElement("option"); option.value=""; option.textContent="No saved plans yet"; select.append(option); return; }
+  plans.forEach(plan => { const option=document.createElement("option"); option.value=plan.id; option.textContent=plan.name+" · "+plan.origin+" → "+plan.destination+" · "+plan.flightRules; select.append(option); });
+  if (selectedId && plans.some(plan=>plan.id===selectedId)) select.value=selectedId;
+}
+function saveCurrentFlightPlan() {
+  const plans=getSavedPlans(),from=airport(origin.value),to=airport(destination.value);
+  const name=$("planName").value.trim()||(from[0]+" to "+to[0]);
+  const plan={id:(window.crypto&&crypto.randomUUID)?crypto.randomUUID():"plan-"+Date.now(),name,origin:origin.value,destination:destination.value,aircraft:$("aircraft").value,flightRules:$("flightType").value,route:$("planRoute").value.trim(),updatedAt:new Date().toISOString()};
+  plans.unshift(plan); localStorage.setItem(PLAN_KEY,JSON.stringify(plans.slice(0,40))); refreshSavedPlans(plan.id);
+  $("planStatus").textContent="Saved: "+name+". This plan is stored on this device."; log("FLIGHT PLANNER","Saved flight plan: "+name+".");
+}
+function loadSelectedFlightPlan() {
+  const plan=getSavedPlans().find(item=>item.id===$("savedPlans").value);
+  if(!plan){$("planStatus").textContent="Select a saved plan first.";return;}
+  origin.value=plan.origin;destination.value=plan.destination;$("aircraft").value=plan.aircraft;$("flightType").value=plan.flightRules;
+  $("planName").value=plan.name;$("planRoute").value=plan.route||"";updateRunwayOptions();hint();
+  $("planStatus").textContent="Loaded: "+plan.name+". Review the route before starting a new flight.";log("FLIGHT PLANNER","Loaded flight plan: "+plan.name+".");
+}
+function deleteSelectedFlightPlan() {
+  const selected=$("savedPlans").value;if(!selected){$("planStatus").textContent="Select a saved plan first.";return;}
+  const plans=getSavedPlans(),removed=plans.find(item=>item.id===selected);
+  localStorage.setItem(PLAN_KEY,JSON.stringify(plans.filter(item=>item.id!==selected)));refreshSavedPlans();
+  $("planStatus").textContent=removed?"Deleted: "+removed.name:"Plan deleted.";log("FLIGHT PLANNER","Deleted saved flight plan.");
+}
+
+
 let flightId = "";
 let sessionLog = [];
 
@@ -756,6 +805,10 @@ function updateDirectory() {
   }
 }
 
+$("savePlan").onclick=saveCurrentFlightPlan;
+$("loadPlan").onclick=loadSelectedFlightPlan;
+$("deletePlan").onclick=deleteSelectedFlightPlan;
+
 $("startFlight").onclick = () => {
   conversationHistory = [];
   flightState = {};
@@ -821,6 +874,7 @@ $("send").onclick = async () => {
     origin: { name: from[0], icao: from[1], runways: from[2] },
     destination: { name: to[0], icao: to[1], runways: to[2] },
     flightRules: $("flightType").value,
+    plannedRoute: $("planRoute").value.split(/[ ,]+/).map(item=>item.trim().toUpperCase()).filter(Boolean).slice(0,40),
     flightId,
     station,
     phase,
@@ -1057,6 +1111,7 @@ updateRunwayOptions();
 $("stationLabel").textContent = "CLEARANCE DELIVERY";
 hint();
 updateDirectory();
+refreshSavedPlans();
 if(restoreSession()) log("SYSTEM","Previous flight session recovered. ATC memory, clearance state and radio history restored.");
 
 </script>
