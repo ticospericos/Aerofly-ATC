@@ -72,6 +72,12 @@ function core(message,c,history){
   s.stage="Preflight";
   s.initialized=true;
  }
+ if(!s.aircraftProfile){
+  s.aircraftProfile=aircraftProfile(ac,c.flightRules);
+  s.initialAltitude=s.initialAltitude||s.aircraftProfile.initialAltitude;
+  s.assignedCruiseAltitude=s.assignedCruiseAltitude||s.aircraftProfile.cruiseAltitude;
+  s.approachSpeed=s.approachSpeed||s.aircraftProfile.approachSpeed;
+ }
  var dr=s.assignedDepartureRunway||"assigned runway",ar=s.assignedArrivalRunway||"assigned runway";
  var station=called||(first?"Clearance":clean(c.station||s.lastStation||"Clearance",24));
  var phase=clean(c.phase||s.phase||"Preflight",24),frequency="",atc="",hint="",explanation="";
