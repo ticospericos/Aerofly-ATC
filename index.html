@@ -249,7 +249,7 @@ button:disabled { opacity:.45; }
   <div class="brand">
     <div>
       <h1>AEROFLY-ATC</h1>
-      <small>FLIGHT COMPANION · SIMULATION ONLY</small>
+      <small>PILOT · CONTROLLER · RADIO COMPANION</small>
     </div>
     <span class="pill">BUILD 0.3</span>
   </div>
@@ -269,7 +269,7 @@ button:disabled { opacity:.45; }
   <div class="grid">
     <div>
       <label for="callsign">Callsign</label>
-      <input id="callsign" value="November Nine Bravo Charlie">
+      <input id="callsign" value="November Niner Bravo Charlie">
     </div>
     <div>
       <label for="aircraft">Aircraft</label>
@@ -387,7 +387,7 @@ button:disabled { opacity:.45; }
   <div class="hint" style="margin-top:12px">
     <strong>TRANSMISSION HINT · WHAT YOU SHOULD SAY</strong>
     <p id="hintText">
-      November Nine Bravo Charlie, request clearance.
+      November Niner Bravo Charlie, request clearance.
     </p>
     <div class="notice" id="hintExplain">
       Read back instructions carefully. Replace the example fields with your flight information.
@@ -569,7 +569,7 @@ function setAtc(text) {
 function hint() {
   const o = airport(origin.value);
   const d = airport(destination.value);
-  const c = $("callsign").value.trim() || "November Nine Bravo Charlie";
+  const c = $("callsign").value.trim() || "November Niner Bravo Charlie";
   const altitude = $("altitude").value.trim() || "assigned altitude";
 
   const hints = {
@@ -684,7 +684,7 @@ $("stations").addEventListener("click",e => {
   hint();
 
   setAtc(
-    `${station} selected. ${airport(origin.value)[0]} (${origin.value}). Make your call when ready. Simulation only.`
+    `${station} selected. ${airport(origin.value)[0]} (${origin.value}). November Niner Bravo Charlie, make your call when ready.`
   );
 });
 
@@ -716,7 +716,7 @@ $("startFlight").onclick = () => {
   );
 
   setAtc(
-    `AEROFLY-ATC ready. ${airport(origin.value)[0]} to ${airport(destination.value)[0]}. Select Clearance or Ground to begin. Simulation only.`
+    `${$("callsign").value.trim() || "November Niner Bravo Charlie"}, ${airport(origin.value)[0]} to ${airport(destination.value)[0]}. Clearance Delivery is available when ready to copy your clearance.`
   );
 
   hint();
@@ -766,7 +766,7 @@ $("send").onclick = () => {
   const text = $("transcript").value.trim();
   if (!text) return;
 
-  const callsign = $("callsign").value.trim() || "November Nine Bravo Charlie";
+  const callsign = $("callsign").value.trim() || "November Niner Bravo Charlie";
 
   log("PILOT · " + callsign,text,"you");
 
@@ -774,7 +774,7 @@ $("send").onclick = () => {
 
   if (/mayday|pan-pan|engine failure|engine shut|fire|smoke|emergency/.test(lower)) {
     setAtc(
-      `${callsign}, emergency acknowledged. Say nature of emergency, persons on board, fuel remaining and your intentions. Simulated response only.`
+      `${callsign}, MAYDAY acknowledged. Say the nature of the emergency, souls on board, fuel remaining, and your intentions.`
     );
   } else if (station === "ATIS") {
     setAtc(
@@ -782,31 +782,31 @@ $("send").onclick = () => {
     );
   } else if (station === "Clearance") {
     setAtc(
-      `${callsign}, roger. Confirm your requested route, flight rules and requested altitude. This is a training simulation, not an actual clearance.`
+      `${callsign}, roger. Say your requested route, flight rules, requested altitude, and ATIS information. Stand by for clearance.`
     );
   } else if (station === "Ground") {
     setAtc(
-      `${callsign}, roger. State your parking position and confirm you have the assigned taxi route. This simulation does not issue real taxi clearances.`
+      `${callsign}, Ground. Say your parking position and advise when you are ready to taxi.`
     );
   } else if (station === "Tower") {
     setAtc(
-      `${callsign}, roger. Confirm runway and that you are holding short. Wait for an actual simulated takeoff clearance in your scenario.`
+      `${callsign}, Tower. Confirm the runway and report when holding short. Advise when ready for departure.`
     );
   } else if (station === "Departure") {
     setAtc(
-      `${callsign}, roger. Say your current altitude and assigned altitude.`
+      `${callsign}, Departure. Say your present altitude and assigned altitude.`
     );
   } else if (station === "Center") {
     setAtc(
-      `${callsign}, roger. Confirm your altitude and next requested flight level.`
+      `${callsign}, Center. Say your present altitude and requested flight level.`
     );
   } else if (station === "Approach") {
     setAtc(
-      `${callsign}, roger. Report your position, altitude and landing intentions.`
+      `${callsign}, Approach. Say your position, altitude, and ATIS information.`
     );
   } else {
     setAtc(
-      `${callsign}, traffic copied. Continue to monitor the appropriate frequency.`
+      `${callsign}, traffic copied. Report your position and intentions.`
     );
   }
 
@@ -818,7 +818,7 @@ $("clear").onclick = () => {
 };
 
 $("declare").onclick = () => {
-  const c = $("callsign").value.trim() || "November Nine Bravo Charlie";
+  const c = $("callsign").value.trim() || "November Niner Bravo Charlie";
   const type = $("emergencyType").value;
 
   const calls = {
