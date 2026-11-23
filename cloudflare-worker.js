@@ -81,7 +81,7 @@ function readbackCheck(message,s){
 function core(message,c,history){
  var msg=String(message||"").toLowerCase(),from=c.origin||{},to=c.destination||{},dep=apt(from.icao),arr=apt(to.icao);
  var cs=clean(c.callsign||"November Niner Charlie Bravo",80),ac=clean(c.aircraft||"Learjet 45",50),s=stateFrom(history,c);
- var emergency=/\b(mayday|pan.?pan|engine fail|engine out|fire|smoke|medical|bird strike|emergency|lost comms|radio failure|unable to communicate|wind shear|microburst|severe turbulence|icing)\b/i.test(message);
+ var emergency=/\b(mayday|pan.?pan|engine fail|engine out|fire|smoke|medical|bird strike|emergency|lost comms|lost communication|lost communications|radio failure|radio out|unable to communicate|unable to transmit|unable to receive|two.?way radio failure|communications failure|comms failure|wind shear|microburst|severe turbulence|icing)\b/i.test(message);
  var called="";
  var calls=[["Clearance",/\b(clearance delivery|clearance)\b/i],["Ground",/\bground\b/i],["Tower",/\btower\b/i],["Departure",/\bdeparture\b/i],["Center",/\b(center)\b/i],["Approach",/\bapproach\b/i],["ATIS",/\b(atis|information|weather report|request weather)\b/i],["Unicom",/\b(unicom|traffic)\b/i]];
  for(var ci=0;ci<calls.length;ci++){if(calls[ci][1].test(msg)){called=calls[ci][0];break;}}
@@ -450,7 +450,7 @@ export default {async fetch(request,env){
  if(request.method==="POST"&&url.pathname==="/tts"){
   try{
    if(Number(request.headers.get("Content-Length")||0)>12000)return out({error:"Request body too large"},413);
-   if(!/application\\/json/i.test(request.headers.get("Content-Type")||""))return out({error:"Content-Type must be application/json"},415);
+   if(!/application\/json/i.test(request.headers.get("Content-Type")||""))return out({error:"Content-Type must be application/json"},415);
    if(!env.AI||typeof env.AI.run!=="function")return out({error:"Neural voice is not configured. Add the Workers AI binding named AI."},503);
    var ttsBody=await request.json(),ttsText=clean(ttsBody.text,1800);
    if(!ttsText)return out({error:"Text is required"},400);
@@ -467,7 +467,7 @@ export default {async fetch(request,env){
  if(request.method!=="POST"||url.pathname!=="/atc")return out({error:"Use POST /atc or GET /health"},404);
  try{
   if(Number(request.headers.get("Content-Length")||0)>16000)return out({error:"Request body too large"},413);
-  if(!/application\\/json/i.test(request.headers.get("Content-Type")||""))return out({error:"Content-Type must be application/json"},415);
+  if(!/application\/json/i.test(request.headers.get("Content-Type")||""))return out({error:"Content-Type must be application/json"},415);
   var body=await request.json(),message=clean(body.message,3000),context=body.context&&typeof body.context==="object"?body.context:{},history=Array.isArray(body.history)?body.history.slice(-8):[];
   if(!message)return out({error:"Message is required"},400);
  return out(core(message,context,history));
