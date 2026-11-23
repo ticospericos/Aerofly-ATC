@@ -524,6 +524,7 @@ let atcSpeaking = false;
 let activeNeuralAudio = null;
 let activeAudioUrl = null;
 let speechRequestId = 0;
+const neuralAudioCache = new Map();
 
 function releaseNeuralAudio() {
   if (activeNeuralAudio) {
@@ -573,20 +574,26 @@ async function speak(text, options={}) {
   try {
     $("voiceStatus").textContent = "NEURAL VOICE · GENERATING";
     atcSpeaking = true;
-    const ttsController = new AbortController();
-    const ttsTimer = setTimeout(() => ttsController.abort(), 18000);
-    let response;
-    try {
-      response = await fetch(TTS_API, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, traffic: options.traffic === true }),
-        signal: ttsController.signal
-      });
-    } finally { clearTimeout(ttsTimer); }
-    if (!response.ok) throw new Error("Neural voice service unavailable");
-    const blob = await response.blob();
-    if (!blob.type.includes("audio")) throw new Error("Neural voice returned no audio");
+    const cacheKey = (options.traffic ? "traffic:" : "atc:") + text;
+    let blob = neuralAudioCache.get(cacheKey);
+    if (!blob) {
+      const ttsController = new AbortController();
+      const ttsTimer = setTimeout(() => ttsController.abort(), 18000);
+      let response;
+      try {
+        response = await fetch(TTS_API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, traffic: options.traffic === true }),
+          signal: ttsController.signal
+        });
+      } finally { clearTimeout(ttsTimer); }
+      if (!response.ok) throw new Error("Neural voice service unavailable");
+      blob = await response.blob();
+      if (!blob.type.includes("audio")) throw new Error("Neural voice returned no audio");
+      if (neuralAudioCache.size >= 24) neuralAudioCache.delete(neuralAudioCache.keys().next().value);
+      neuralAudioCache.set(cacheKey, blob);
+    }
     if (requestId !== speechRequestId) return;
     const audioUrl = URL.createObjectURL(blob);
     const audio = new Audio(audioUrl);
