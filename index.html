@@ -338,7 +338,7 @@ button:disabled { opacity:.45; }
     <p id="atcText">
       AEROFLY-ATC online. Select your airports and controller to begin.
     </p>
-    <button id="speakAtc">▶ Play ATC Voice</button>
+    <div class="row" style="margin-top:8px"><button id="speakAtc">▶ Play ATC Voice</button><button id="trafficToggle">Background Traffic: OFF</button><button id="trafficNow">▶ Traffic Sample</button></div><div class="notice" id="trafficStatus" style="margin-top:6px">Background radio is off.</div>
   </div>
 
   <label for="transcript">Your radio transmission</label>
@@ -519,24 +519,26 @@ if ("speechSynthesis" in window) {
   window.speechSynthesis.onvoiceschanged = refreshAtcVoice;
 }
 
-function speak(text) {
+let atcSpeaking = false;
+function speak(text, options={}) {
   if (!("speechSynthesis" in window)) {
     log("VOICE","Speech playback is not supported by this browser.");
     return;
   }
   const synth = window.speechSynthesis;
-  synth.cancel();
+  if (options.interrupt !== false) synth.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = "en-US";
-  utterance.rate = 0.96;
-  utterance.pitch = 1.0;
+  utterance.rate = options.traffic ? 0.91 : 0.95;
+  utterance.pitch = options.traffic ? 1.02 : 1.0;
   const voice = selectedAtcVoice || getPreferredAtcVoice();
   if (voice) {
     utterance.voice = voice;
     utterance.lang = voice.lang || "en-US";
   }
-  // iOS sometimes needs a short pause after cancel before starting a new utterance.
-  utterance.onend = () => {};
+  utterance.onstart = () => { if (!options.traffic) atcSpeaking = true; };
+  utterance.onend = () => { if (!options.traffic) atcSpeaking = false; };
+  utterance.onerror = () => { if (!options.traffic) atcSpeaking = false; };
   synth.speak(utterance);
 }
 
@@ -747,22 +749,58 @@ $("clear").onclick = () => {
   $("transcript").value = "";
 };
 
+// Simulated ambient radio callouts, not live aircraft traffic.
+let backgroundTrafficEnabled = false;
+let backgroundTrafficTimer = null;
+let trafficIndex = 0;
+const trafficCalls = [
+  "Oakland Center, Cessna Seven Two Lima, level at six thousand five hundred.",
+  "San Francisco Tower, United Four Twenty, holding short runway two eight right.",
+  "Oakland Approach, Skyhawk Three One Papa, inbound from the east, request landing.",
+  "Monterey Tower, Citation Eight Romeo, five mile final runway two eight.",
+  "Oakland Center, Southwest Sixteen Twenty, climbing through eight thousand."
+];
+function playTrafficSample() {
+  if (!("speechSynthesis" in window) || atcSpeaking || window.speechSynthesis.speaking) return;
+  const call = trafficCalls[trafficIndex % trafficCalls.length];
+  trafficIndex++;
+  speak(call, {traffic:true, interrupt:false});
+  $("trafficStatus").textContent = "SIMULATED RADIO: " + call;
+}
+function stopBackgroundTraffic() {
+  backgroundTrafficEnabled = false;
+  if (backgroundTrafficTimer) clearInterval(backgroundTrafficTimer);
+  backgroundTrafficTimer = null;
+  $("trafficToggle").textContent = "Background Traffic: OFF";
+  $("trafficStatus").textContent = "Background radio is off.";
+}
+$("trafficToggle").onclick = () => {
+  if (backgroundTrafficEnabled) { stopBackgroundTraffic(); return; }
+  backgroundTrafficEnabled = true;
+  $("trafficToggle").textContent = "Background Traffic: ON";
+  $("trafficStatus").textContent = "Simulated radio traffic enabled. Callouts play between ATC transmissions.";
+  playTrafficSample();
+  backgroundTrafficTimer = setInterval(playTrafficSample, 42000);
+};
+$("trafficNow").onclick = playTrafficSample;
+
 function normalizeAviationTranscript(text) {
-  let value = text
-    .replace(/\bready to send\b/gi, "ready to descend")
-    .replace(/\bready to decent\b/gi, "ready to descend")
-    .replace(/\bready for descend\b/gi, "ready to descend")
-    .replace(/\bready descend\b/gi, "ready to descend")
-    .replace(/\brequest to send\b/gi, "request descent")
-    .replace(/\brequest decent\b/gi, "request descent")
-    .replace(/\brequest to decent\b/gi, "request descent")
-    .replace(/\bready for decent\b/gi, "ready to descend")
-    .replace(/\bholding (?:sure|shirt|shorts)\b/gi, "holding short")
-    .replace(/\bclear for take ?off\b/gi, "cleared for takeoff")
-    .replace(/\bcleared for take off\b/gi, "cleared for takeoff")
-    .replace(/\bline up and wait\b/gi, "line up and wait")
-    .replace(/\bcontact tower\b/gi, "contact tower")
-    .replace(/\bcontact ground\b/gi, "contact ground");
+  const corrections = [
+    [/\bready to send\b/gi, "ready to descend"],
+    [/\bready to decent\b/gi, "ready to descend"],
+    [/\bready for descend\b/gi, "ready to descend"],
+    [/\bready descend\b/gi, "ready to descend"],
+    [/\brequest to send\b/gi, "request descent"],
+    [/\brequest decent\b/gi, "request descent"],
+    [/\brequest to decent\b/gi, "request descent"],
+    [/\bready for decent\b/gi, "ready to descend"],
+    [/\brequest the send\b/gi, "request descent"],
+    [/\bholding (?:sure|shirt|shorts)\b/gi, "holding short"],
+    [/\bcleared for take off\b/gi, "cleared for takeoff"],
+    [/\bclear for take off\b/gi, "cleared for takeoff"]
+  ];
+  let value = String(text || "");
+  for (const [pattern, replacement] of corrections) value = value.replace(pattern, replacement);
   return value.replace(/\s+/g, " ").trim();
 }
 
