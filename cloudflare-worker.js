@@ -292,7 +292,12 @@ function core(message,c,history){
    }
   }else if(directMatch){
    var directFix=directMatch[1].toUpperCase(),directIndex=s.routeWaypoints.indexOf(directFix);
-   if(directIndex<0){
+   if(s.alternateAirport&&directFix===s.alternateAirport){
+    s.divertedTo=directFix;s.currentWaypoint=directFix;
+    atc=cs+", direct "+directFix+" approved as your simulated alternate. Proceed using the alternate route in your simulator. Maintain "+(s.assignedCruiseAltitude||s.initialAltitude)+".";
+    hint=cs+", proceeding direct to alternate "+directFix+", maintaining "+(s.assignedCruiseAltitude||s.initialAltitude)+", "+cs+".";
+    explanation="La desviación al alterno se registra en la sesión. Cambia la ruta manualmente en Aerofly; no hay navegación ni telemetría sincronizada.";
+   }else if(directIndex<0){
     atc=cs+", unable to verify "+directFix+" in your saved flight plan. Confirm the waypoint or request a route amendment.";
     hint=cs+", unable to verify waypoint "+directFix+", request route amendment.";
     explanation="El punto solicitado no aparece en la ruta guardada. No se calcula un rumbo real ni se consulta navegación externa.";
