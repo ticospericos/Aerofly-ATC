@@ -9,6 +9,16 @@ function clean(v,n){return String(v==null?"":v).trim().slice(0,n||200);}
 function apt(code){return AIRPORTS.find(a=>a[1]===code)||[code||"Unknown",code||"----",[]];}
 function hdg(r){var m=String(r||"").match(/^([0-9]{1,2})/);return m?(Number(m[1])*10)%360:0;}
 function runway(list,wind){if(!list||!list.length)return "";return list.slice().sort((a,b)=>Math.abs(((hdg(a)-wind+540)%360)-180)-Math.abs(((hdg(b)-wind+540)%360)-180))[0];}
+function seededNumber(seed,max){var h=2166136261;for(var i=0;i<String(seed||"flight").length;i++){h^=String(seed||"flight").charCodeAt(i);h=Math.imul(h,16777619);}return (h>>>0)%max;}
+function makeWeather(seed){
+ var directions=[0,10,20,30,40,50,60,70,80,90,100,110,120,130,140,150,160,170,180,190,200,210,220,230,240,250,260,270,280,290,300,310,320,330,340,350];
+ var windDirection=directions[seededNumber(seed+":wind",directions.length)];
+ var windSpeed=4+seededNumber(seed+":speed",13);
+ var visibilityOptions=["6 miles","7 miles","8 miles","9 miles","10 miles"];
+ var conditions=["Few clouds","Scattered clouds","Broken clouds","Clear skies"];
+ var altimeter=(29.70+seededNumber(seed+":altimeter",61)/100).toFixed(2);
+ return {windDirection:windDirection,windSpeed:windSpeed,wind:windDirection+" at "+windSpeed+" knots",visibility:visibilityOptions[seededNumber(seed+":visibility",visibilityOptions.length)],conditions:conditions[seededNumber(seed+":conditions",conditions.length)],altimeter:altimeter,information:"Alpha",simulated:true};
+}
 function stateFrom(history,c){if(c.flightState&&typeof c.flightState==="object"&&Object.keys(c.flightState).length)return c.flightState;for(var i=(history||[]).length-1;i>=0;i--){if(history[i].role==="model"){try{var x=JSON.parse(history[i].text);if(x.state)return x.state;}catch(e){}}}return {};}
 function aircraftProfile(name,rules){
  var key=String(name||"").toLowerCase(),vfr=String(rules||"IFR").toUpperCase()==="VFR";
@@ -61,9 +71,11 @@ function core(message,c,history){
  }
  var first=!s.assignedDepartureRunway;
  if(first){
-  s.simWind=270;
+  s.weather=makeWeather(s.flightId||[from.icao,to.icao,ac].join("-"));
+  s.simWind=s.weather.windDirection;
   s.assignedDepartureRunway=runway(dep[2],s.simWind);
   s.assignedArrivalRunway=runway(arr[2],s.simWind);
+  s.atis=s.atis||{airport:dep[1],information:"Alpha"};
   s.aircraftProfile=aircraftProfile(ac,c.flightRules);
   s.initialAltitude=s.aircraftProfile.initialAltitude;
   s.assignedCruiseAltitude=s.aircraftProfile.cruiseAltitude;
@@ -91,11 +103,11 @@ function core(message,c,history){
   var useArrival=/\b(destination|arrival|inbound|approach)\b/i.test(msg);
   var atisApt=useArrival?arr:dep;
   var atisRunway=useArrival?ar:dr;
-  var atisWind=useArrival?"290 at 5 knots":"270 at 6 knots";
-  var atisKey=atisApt[1];
-  s.atis=s.atis&&s.atis.airport===atisKey?s.atis:{airport:atisKey,information:"Alpha",wind:atisWind,visibility:"10 miles",runway:atisRunway,conditions:"Few clouds"};
-  frequency="126.000";atc=atisApt[0]+" information "+s.atis.information+". Wind "+s.atis.wind+". Visibility "+s.atis.visibility+". Few clouds. Runway "+atisRunway+" in use. Advise you have information "+s.atis.information+". Simulated ATIS.";
-  hint="Information "+s.atis.information+" received, "+cs+".";explanation="ATIS ficticio para "+atisApt[0]+", no sincronizado con el clima de Aerofly.";
+  var atisKey=atisApt[1],weather=s.weather||makeWeather(s.flightId||[from.icao,to.icao,ac].join("-"));
+  s.weather=weather;
+  s.atis={airport:atisKey,information:weather.information,wind:weather.wind,visibility:weather.visibility,altimeter:weather.altimeter,runway:atisRunway,conditions:weather.conditions};
+  frequency="126.000";atc=atisApt[0]+" information "+weather.information+". Wind "+weather.wind+". Visibility "+weather.visibility+". "+weather.conditions+". Altimeter "+weather.altimeter+". Runway "+atisRunway+" in use. Advise you have information "+weather.information+". Simulated ATIS.";
+  hint="Information "+weather.information+" received, "+cs+".";explanation="ATIS meteorológico ficticio generado para esta sesión. No está sincronizado con el clima real ni con Aerofly.";
  } else if(station==="Clearance"){
   phase="Preflight";frequency="121.700";
   if(s.stage==="ClearedToTaxi"&&!/\b(repeat|say again|say that again|unable to copy)\b/i.test(msg)){
@@ -169,7 +181,7 @@ function core(message,c,history){
    explanation="Continúa la carrera de aterrizaje y libera la pista cuando sea seguro.";
   } else if(s.stage==="Approach"||/\b(established on final|on final|final approach|runway in sight|visual approach)\b/i.test(msg)){
    phase="Landing";s.stage="Landing";
-   atc=cs+", runway "+ar+", cleared to land. Wind calm. After landing, vacate when able and contact Ground on 121.900.";
+   atc=cs+", runway "+ar+", cleared to land. Wind "+((s.weather&&s.weather.wind)||"variable")+". After landing, vacate when able and contact Ground on 121.900.";
    hint=cs+", cleared to land runway "+ar+", "+cs+".";
    explanation="Autorización de aterrizaje simulada. Después de liberar la pista, contacta Ground.";
   } else if(/\b(vacated|clear of runway|runway clear|off the runway)\b/i.test(msg)){
@@ -179,7 +191,7 @@ function core(message,c,history){
    explanation="Sigue las calles señalizadas en Aerofly hasta el estacionamiento.";
   } else {
    phase="Takeoff";s.stage="Takeoff";
-   atc=cs+", runway "+dr+", cleared for takeoff. Wind 270 at 6 knots. After departure contact Departure on 124.600.";
+   atc=cs+", runway "+dr+", cleared for takeoff. Wind "+((s.weather&&s.weather.wind)||"variable")+" . After departure contact Departure on 124.600.";
    hint=cs+", cleared for takeoff runway "+dr+", contact Departure after departure, "+cs+".";
    explanation="Autorización de despegue simulada. Después del despegue, llama a Departure.";
   }
