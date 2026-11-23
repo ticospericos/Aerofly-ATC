@@ -12,19 +12,17 @@ function hdg(r){var m=String(r||"").match(/^([0-9]{1,2})/);return m?(Number(m[1]
 function runway(list,wind){if(!list||!list.length)return "";return list.slice().sort((a,b)=>Math.abs(((hdg(a)-wind+540)%360)-180)-Math.abs(((hdg(b)-wind+540)%360)-180))[0];}
 function stateFrom(history,c){if(c.flightState)return c.flightState;for(var i=(history||[]).length-1;i>=0;i--){if(history[i].role==="model"){try{var x=JSON.parse(history[i].text);if(x.state)return x.state;}catch(e){}}}return {};}
 function core(message,c,history){
- var msg=message.toLowerCase(),from=c.origin||{},to=c.destination||{},dep=apt(from.icao),arr=apt(to.icao);
- var cs=clean(c.callsign||"November Niner Charlie Bravo",80),ac=clean(c.aircraft||"Learjet 45",50),s=stateFrom(history,c);
- var first=!s.assignedDepartureRunway;
+ const msg=String(message||"").toLowerCase(),from=c.origin||{},to=c.destination||{},dep=apt(from.icao),arr=apt(to.icao);
+ const cs=clean(c.callsign||"November Niner Charlie Bravo",80),ac=clean(c.aircraft||"Learjet 45",50),s=stateFrom(history,c);
+ const first=!s.assignedDepartureRunway;
  if(first){s.simWind=Math.floor(Math.random()*36)*10;s.assignedDepartureRunway=runway(dep[2],s.simWind);s.assignedArrivalRunway=runway(arr[2],s.simWind);s.initialAltitude=c.flightRules==="VFR"?"5,500 feet":"5,000 feet";s.heading=String(Math.floor(Math.random()*36)*10).padStart(3,"0");s.squawk=String(1000+Math.floor(Math.random()*7000));}
- var dr=s.assignedDepartureRunway||"assigned runway",ar=s.assignedArrivalRunway||"assigned runway";
- var station=clean(c.station||"Clearance",24),phase=clean(c.phase||"Preflight",24),frequency=clean(c.frequency||"121.700",16),atc="",hint="",explanation="";
- var engineFire=/\b(engine fire|engine on fire|fire in (the )?(left|right|number|no\.?\s*\d|one|two|three|four)?\s*engine|fire warning|engine is burning)\b/i.test(message);
- var engineFailure=/\b(engine failure|engine fail|engine out|lost (the )?engine|loss of (an )?engine|engine shutdown|power loss|dual engine)\b/i.test(message);
- var smoke=/\b(smoke|fumes|cabin smoke)\b/i.test(message);
- var medical=/\b(medical|passenger sick|medical emergency)\b/i.test(message);
- var bird=/\b(bird strike|birds?)\b/i.test(message);
- var declared=/\b(mayday|pan.?pan|emergency|declare( an)? emergency)\b/i.test(message);
- var emergencyNow=engineFire||engineFailure||smoke||medical||bird||declared||s.emergencyType;
+ const dr=s.assignedDepartureRunway||"assigned runway",ar=s.assignedArrivalRunway||"assigned runway";
+ let station=clean(c.station||"Clearance",24),phase=clean(c.phase||"Preflight",24),frequency=clean(c.frequency||"121.700",16),atc="",hint="",explanation="";
+ const engineFire=/\b(engine fire|engine on fire|fire in (the )?(left|right|number|no\.?\s*\d|one|two|three|four)?\s*engine|fire warning|engine is burning)\b/i.test(message);
+ const engineFailure=/\b(engine failure|engine fail|engine out|lost (the )?engine|loss of (an )?engine|engine shutdown|power loss|dual engine)\b/i.test(message);
+ const smoke=/\b(smoke|fumes|cabin smoke)\b/i.test(message),medical=/\b(medical|passenger sick|medical emergency)\b/i.test(message),bird=/\b(bird strike|birds?)\b/i.test(message);
+ const declared=/\b(mayday|pan.?pan|emergency|declare( an)? emergency)\b/i.test(message);
+ const hadEmergency=!!s.emergencyType, emergencyNow=engineFire||engineFailure||smoke||medical||bird||declared||hadEmergency;
  if(engineFire){s.emergencyType="ENGINE FIRE";s.emergencyStage="INITIAL";}
  else if(engineFailure){s.emergencyType="ENGINE FAILURE";s.emergencyStage="INITIAL";}
  else if(smoke){s.emergencyType="SMOKE";s.emergencyStage=s.emergencyStage||"INITIAL";}
@@ -32,81 +30,82 @@ function core(message,c,history){
  else if(bird){s.emergencyType="BIRD STRIKE";s.emergencyStage=s.emergencyStage||"INITIAL";}
  else if(declared&&!s.emergencyType){s.emergencyType="GENERAL EMERGENCY";s.emergencyStage="INITIAL";}
  if(emergencyNow){
-   station="Tower";phase="Emergency";frequency="121.500";s.squawk="7700";s.emergencyAirport=s.emergencyAirport||((phase==="Approach"||phase==="Landing")?arr[1]:arr[1]);
-   var souls=/\b(\d{1,3})\s*(souls|persons|people|pax|passengers|on board)\b/i.exec(message);
-   var fuel=/\b(fuel|minutes|hours|endurance)\b/i.exec(message);
+   const airportName=arr[0],runwayName=ar;
+   const souls=/\b(\d{1,3})\s*(souls|persons|people|pax|passengers|on board)\b/i.exec(message);
    if(souls)s.personsOnBoard=souls[1];
-   if(fuel)s.fuelEndurance=clean(message.match(/.{0,25}(?:fuel|minutes|hours|endurance).{0,35}/i)?.[0]||"",80);
-   var details=(s.personsOnBoard?" Souls on board "+s.personsOnBoard+".":" Confirm persons on board.")+(s.fuelEndurance?" Fuel endurance noted: "+s.fuelEndurance+".":" Advise fuel endurance when able.");
-   var airportName=arr[0],runwayName=ar;
+   const fuel=/\b(?:fuel|endurance)\D{0,20}(\d+\s*(?:minutes?|hours?|hrs?))\b/i.exec(message);
+   if(fuel)s.fuelEndurance=fuel[1];
+   const details=(s.personsOnBoard?" Souls on board "+s.personsOnBoard+".":" Confirm persons on board when able.")+(s.fuelEndurance?" Fuel endurance "+s.fuelEndurance+".":" Advise fuel endurance when able.");
+   s.squawk="7700";phase="Emergency";
    if(s.emergencyStage==="INITIAL"||!s.emergencyStage){
+     station="Tower";frequency="121.500";
      if(s.emergencyType==="ENGINE FIRE"){
-       atc=cs+", MAYDAY acknowledged. Engine fire reported. Turn no further than necessary and maintain aircraft control; carry out the aircraft's engine-fire checklist. "+airportName is available for an immediate priority landing, runway "+runwayName+". Emergency equipment will be standing by. Confirm intentions."+details;
-       hint=cs+", MAYDAY, engine fire, request immediate landing "+airportName+", runway "+runwayName+".";
-       explanation="Emergencia de fuego: prioridad máxima, checklist del avión, aterrizaje inmediato y servicios de emergencia preparados. Confirma intenciones, personas a bordo y combustible.";
+       atc=`${cs}, MAYDAY acknowledged. Engine fire reported. Maintain aircraft control and carry out the aircraft's engine-fire checklist. ${airportName} is available for an immediate priority landing, runway ${runwayName}. Emergency and fire equipment will be standing by. Confirm intentions.${details}`;
+       hint=`${cs}, MAYDAY, engine fire, request immediate landing ${airportName}, runway ${runwayName}.`;
+       explanation="Fuego de motor: prioridad máxima, checklist del avión, aterrizaje inmediato y equipos de emergencia preparados.";
      }else if(s.emergencyType==="ENGINE FAILURE"){
-       atc=cs+", MAYDAY acknowledged. Engine failure reported. Maintain control and advise whether the aircraft is controllable and your intentions. "+airportName+" is available for priority landing, runway "+runwayName+". I will keep the frequency clear and arrange emergency equipment."+details;
-       hint=cs+", MAYDAY, engine failure, aircraft controllable, request priority landing "+airportName+", runway "+runwayName+".";
-       explanation="Falla de motor: ATC reconoce MAYDAY, ofrece prioridad para aterrizar y pregunta si el avión sigue controlable. No se presupone cuántos motores tiene la aeronave.";
+       atc=`${cs}, MAYDAY acknowledged. Engine failure reported. Maintain control and advise whether the aircraft remains controllable and your intentions. ${airportName} is available for priority landing, runway ${runwayName}. Emergency equipment will be standing by.${details}`;
+       hint=`${cs}, MAYDAY, engine failure, aircraft controllable, request priority landing ${airportName}, runway ${runwayName}.`;
+       explanation="Falla de motor: ATC reconoce MAYDAY, ofrece prioridad para aterrizar y pregunta si el avión sigue controlable.";
      }else if(s.emergencyType==="SMOKE"){
-       atc=cs+", distress call acknowledged. Smoke reported. Declare MAYDAY if the situation is immediately life-threatening; otherwise PAN-PAN. Request immediate intentions. "+airportName+" available for priority landing runway "+runwayName+". Emergency services will be standing by."+details;
-       hint=cs+", PAN-PAN, smoke in aircraft, request priority landing "+airportName+", runway "+runwayName+".";
-       explanation="Humo a bordo: prioridad, aterrizaje sin demora y servicios de emergencia. El piloto determina la gravedad y declara MAYDAY o PAN-PAN.";
+       atc=`${cs}, distress call acknowledged. Smoke reported. Priority handling approved to ${airportName}, runway ${runwayName}. Declare MAYDAY if the situation is immediately life-threatening; otherwise PAN-PAN. Emergency services will be standing by.${details}`;
+       hint=`${cs}, PAN-PAN, smoke in aircraft, request priority landing ${airportName}, runway ${runwayName}.`;
+       explanation="Humo a bordo: prioridad, aterrizaje sin demora y servicios de emergencia.";
      }else if(s.emergencyType==="MEDICAL"){
-       atc=cs+", PAN-PAN acknowledged. Medical emergency understood. You are cleared for priority handling to "+airportName+", runway "+runwayName+". Medical assistance will be requested to meet the aircraft. Advise if you require MAYDAY-level assistance."+details;
-       hint=cs+", PAN-PAN, medical emergency, request priority landing "+airportName+", runway "+runwayName+".";
+       atc=`${cs}, PAN-PAN acknowledged. Medical emergency understood. Priority handling approved to ${airportName}, runway ${runwayName}. Medical assistance will be requested to meet the aircraft.${details}`;
+       hint=`${cs}, PAN-PAN, medical emergency, request priority landing ${airportName}, runway ${runwayName}.`;
        explanation="Emergencia médica: prioridad de llegada y asistencia médica solicitada en tierra.";
      }else if(s.emergencyType==="BIRD STRIKE"){
-       atc=cs+", bird strike reported, roger. Advise any engine indications, vibration or aircraft damage and confirm whether you wish to return or continue. "+airportName+" runway "+runwayName+" is available for priority landing if required."+details;
-       hint=cs+", bird strike, checking aircraft, request to return for landing if required.";
+       atc=`${cs}, bird strike reported, roger. Advise any engine indications, vibration or aircraft damage and confirm whether you wish to return or continue. ${airportName}, runway ${runwayName}, is available for priority landing if required.${details}`;
+       hint=`${cs}, bird strike, checking aircraft, request return for landing if required.`;
        explanation="Impacto con ave: ATC pregunta por daños e indicaciones del motor y ofrece regreso prioritario.";
      }else{
-       atc=cs+", emergency acknowledged. MAYDAY or PAN-PAN, as appropriate, is understood. State the nature of the emergency, your intentions and whether the aircraft is controllable. "+airportName+" runway "+runwayName+" is available for priority handling."+details;
-       hint=cs+", MAYDAY, nature of emergency [state problem], request priority handling.";
+       atc=`${cs}, emergency acknowledged. State the nature of the emergency, aircraft controllability and your intentions. Priority handling is available to ${airportName}, runway ${runwayName}.${details}`;
+       hint=`${cs}, MAYDAY, nature of emergency [state problem], request priority handling.`;
        explanation="ATC reconoce la emergencia y solicita naturaleza, controlabilidad, intenciones, personas a bordo y combustible.";
      }
      s.emergencyStage="ACKNOWLEDGED";s.nextStation="Approach";
    }else if(/\b(landed|on the ground|runway vacated|vacated|stopped|shut down)\b/i.test(msg)){
-     station="Ground";phase="Emergency";frequency="121.900";s.emergencyStage="ON_GROUND";
-     atc=cs+", roger. Emergency services are responding. Keep the aircraft stopped unless instructed otherwise. Advise when engines are shut down and when it is safe for responders to approach. Ground will coordinate assistance.";
-     hint=cs+", stopped, engines [running/shut down], awaiting emergency services.";
-     explanation="Después del aterrizaje, ATC coordina los vehículos de emergencia y pide confirmar estado de motores y seguridad.";
-   }else if(/\b(approach|inbound|descending|ready for landing|request landing|on final)\b/i.test(msg)||s.emergencyStage==="ACKNOWLEDGED"){
-     station="Approach";phase="Emergency";frequency="124.000";s.emergencyStage="APPROACH";
-     atc=cs+", roger. Priority approach approved for "+airportName+", runway "+runwayName. No delay expected. Turn as required to position for final; report established. Emergency equipment is positioned and standing by. Advise when ready for landing.";
-     hint=cs+", priority approach runway "+runwayName, established on final.";
-     explanation="Aproximación prioritaria: sin demoras, pista asignada y equipos de emergencia preparados. Reporta establecido en final.";
+     station="Ground";frequency="121.900";s.emergencyStage="ON_GROUND";
+     atc=`${cs}, roger. Emergency services are responding. Keep the aircraft stopped unless instructed otherwise. Advise when engines are shut down and when it is safe for responders to approach. Ground will coordinate assistance.`;
+     hint=`${cs}, stopped, engines [running or shut down], awaiting emergency services.`;
+     explanation="Después del aterrizaje, ATC coordina vehículos de emergencia y confirma que sea seguro acercarse.";
+   }else if(s.emergencyStage==="ACKNOWLEDGED"){
+     station="Approach";frequency="124.000";s.emergencyStage="APPROACH";
+     atc=`${cs}, roger. Priority approach approved for ${airportName}, runway ${runwayName}. No delay expected. Position for final as required and report established. Emergency equipment is positioned and standing by. Advise when ready for landing.`;
+     hint=`${cs}, priority approach runway ${runwayName}, will report established on final.`;
+     explanation="Aproximación prioritaria: pista asignada, sin demoras y equipos de emergencia preparados.";
      s.nextStation="Tower";
-   }else if(/\b(final|cleared to land|landing)\b/i.test(msg)||s.emergencyStage==="APPROACH"){
-     station="Tower";phase="Emergency";frequency="118.300";s.emergencyStage="LANDING";
-     atc=cs+", runway "+runwayName, cleared to land. Wind "+String(s.simWind||270).padStart(3,"0")+" at 6 knots. Emergency equipment is standing by. After landing, stop if necessary and advise your status; do not cross another runway until instructed.";
-     hint=cs+", cleared to land runway "+runwayName+".";
-     explanation="Autorización de aterrizaje con vehículos de emergencia en espera. Informa tu estado después de detenerte.";
+   }else if(s.emergencyStage==="APPROACH"){
+     station="Tower";frequency="118.300";s.emergencyStage="LANDING";
+     atc=`${cs}, runway ${runwayName}, cleared to land. Wind ${String(s.simWind||270).padStart(3,"0")} at 6 knots. Emergency equipment is standing by. After landing, stop if necessary and advise your status; do not cross another runway until instructed.`;
+     hint=`${cs}, cleared to land runway ${runwayName}.`;
+     explanation="Autorización de aterrizaje con vehículos de emergencia en espera.";
      s.nextStation="Ground";
    }else{
-     atc=cs+", roger. "+s.emergencyType+" remains active; maintain priority handling. "+(s.emergencyStage==="ACKNOWLEDGED"?"Advise intentions and when ready to proceed direct for the priority approach.":"Continue as cleared and advise any change in aircraft condition.")+" Emergency frequency 121.500 monitored.";
-     hint=cs+", roger, maintaining emergency status, "+(s.personsOnBoard?"souls "+s.personsOnBoard:"souls on board [number]")+".";
+     station="Ground";frequency="121.900";
+     atc=`${cs}, roger. ${s.emergencyType} remains active; maintain priority handling. Advise any change in aircraft condition and confirm when the aircraft is safely stopped.`;
+     hint=`${cs}, roger, emergency remains active, will advise when stopped.`;
      explanation="La emergencia permanece activa; ATC conserva el contexto y no repite el mensaje inicial.";
    }
  }else if(/atis|information|weather/i.test(msg)||station==="ATIS"){
-   station="ATIS";var w=Math.floor(Math.random()*36)*10;s.atis=s.atis&&s.atis.airport===dep[1]?s.atis:{airport:dep[1],information:String.fromCharCode(65+Math.floor(Math.random()*8)),wind:String(w).padStart(3,"0")+" at "+(4+Math.floor(Math.random()*9))+" knots",visibility:"10 miles",temperature:(17+Math.floor(Math.random()*12))+" degrees Celsius",runway:dr,conditions:"Few clouds"};atc=dep[0]+" information "+s.atis.information.+" Wind "+s.atis.wind+". Visibility "+s.atis.visibility+". "+s.atis.conditions+". Temperature "+s.atis.temperature+". Runway "+dr+" in use. Advise you have information "+s.atis.information+". Simulated ATIS.";hint="Information "+s.atis.information+" received, "+cs+".";explanation="ATIS ficticio, no sincronizado con el clima de Aerofly.";frequency="126.000";
+   station="ATIS";const w=Math.floor(Math.random()*36)*10;s.atis=s.atis&&s.atis.airport===dep[1]?s.atis:{airport:dep[1],information:String.fromCharCode(65+Math.floor(Math.random()*8)),wind:String(w).padStart(3,"0")+" at "+(4+Math.floor(Math.random()*9))+" knots",visibility:"10 miles",temperature:(17+Math.floor(Math.random()*12))+" degrees Celsius",runway:dr,conditions:"Few clouds"};atc=`${dep[0]} information ${s.atis.information}. Wind ${s.atis.wind}. Visibility ${s.atis.visibility}. ${s.atis.conditions}. Temperature ${s.atis.temperature}. Runway ${dr} in use. Advise you have information ${s.atis.information}. Simulated ATIS.`;hint=`Information ${s.atis.information} received, ${cs}.`;explanation="ATIS ficticio, no sincronizado con el clima de Aerofly.";frequency="126.000";
  }else if(first||/request clearance|clearance|ifr clearance|vfr clearance/.test(msg)||(station==="Clearance"&&phase==="Preflight")){
-   station="Clearance";phase="Preflight";frequency="121.700";atc=cs+", clearance copied. Cleared to "+arr[0]+" airport, "+(c.flightRules||"IFR")+" departure. Expect runway "+dr+". Initial climb "+s.initialAltitude+"; expect "+(c.requestedAltitude||"requested cruise altitude")+" after departure. Squawk "+s.squawk+". Advise when ready for pushback and start. Read back destination, runway, initial altitude and transponder.";hint=cs+", cleared to "+arr[0]+", runway "+dr+", initial altitude "+s.initialAltitude+", squawk "+s.squawk+". Ready for pushback.";explanation="Read back completo: destino, pista, altitud inicial y código transponder. La autorización de crucero llegará después del despegue.";
+   station="Clearance";phase="Preflight";frequency="121.700";atc=`${cs}, clearance copied. Cleared to ${arr[0]} airport, ${c.flightRules||"IFR"} departure. Expect runway ${dr}. Initial climb ${s.initialAltitude}; expect ${c.requestedAltitude||"requested cruise altitude"} after departure. Squawk ${s.squawk}. Advise when ready for pushback and start. Read back destination, runway, initial altitude and transponder.`;hint=`${cs}, cleared to ${arr[0]}, runway ${dr}, initial altitude ${s.initialAltitude}, squawk ${s.squawk}. Ready for pushback.`;explanation="Readback completo: destino, pista, altitud inicial y transponder.";
  }else if(/taxi|ready to taxi|pushback|parking|start up/.test(msg)||station==="Ground"||phase==="Taxi"){
-   station="Ground";phase="Taxi";frequency="121.900";atc=cs+", Ground. Pushback and start approved if required. Taxi to holding point runway "+dr+" via the published airport taxiways; give way to traffic, use caution near other aircraft and hold short of runway "+dr+". Report holding short and ready for departure. Taxiway routing is not verified in this database.";hint=cs+", pushback and start approved, taxi to holding point runway "+dr+", hold short, will report holding short.";explanation="Rodaje más completo con pushback/start, precaución, tráfico y punto de espera. No inventamos nombres de calles de rodaje.";
+   station="Ground";phase="Taxi";frequency="121.900";atc=`${cs}, Ground. Pushback and start approved if required. Taxi to the holding point for runway ${dr} via published airport taxiways; give way to traffic, use caution near other aircraft and hold short of runway ${dr}. Report holding short and ready for departure. Taxiway routing is not verified in this database.`;hint=`${cs}, pushback and start approved, taxi to holding point runway ${dr}, hold short, will report holding short.`;explanation="Rodaje con pushback, precaución, tráfico y punto de espera; sin inventar taxiways.";
  }else if(/holding short|ready for departure|ready for takeoff|takeoff/.test(msg)||station==="Tower"||phase==="Takeoff"){
-   station="Tower";phase="Takeoff";frequency="118.300";atc=cs+", Tower. Runway "+dr+"; wind "+String(s.simWind||270).padStart(3,"0")+" at 6 knots. Runway "+dr+", cleared for takeoff. After departure, fly runway heading and contact Departure on 124.600 when airborne. Caution, check final approach is clear.";hint=cs+", runway "+dr+", cleared for takeoff, runway heading, contact Departure 124.600 airborne.";explanation="Autorización de despegue con viento, rumbo de pista y transferencia a Departure.";s.nextStation="Departure";
+   station="Tower";phase="Takeoff";frequency="118.300";atc=`${cs}, Tower. Runway ${dr}; wind ${String(s.simWind||270).padStart(3,"0")} at 6 knots. Runway ${dr}, cleared for takeoff. After departure, fly runway heading and contact Departure on 124.600 when airborne. Check final approach is clear.`;hint=`${cs}, runway ${dr}, cleared for takeoff, runway heading, contact Departure 124.600 airborne.`;explanation="Autorización de despegue con viento, rumbo de pista y transferencia a Departure.";s.nextStation="Departure";
  }else if(/departure|airborne|passing|climbing/.test(msg)||phase==="Departure"){
-   station="Departure";phase="Departure";frequency="124.600";atc=cs+", Departure, radar contact. Continue climb and maintain "+(c.requestedAltitude||"FL350")+". Turn heading "+s.heading+" when able; advise passing 3,000 feet. Traffic information will be passed if required. Contact Oakland Center on 127.000 when advised.";hint=cs+", radar contact, climbing to "+(c.requestedAltitude||"FL350")+", heading "+s.heading+".";explanation="Departure confirma contacto radar, ascenso y rumbo asignado. Espera la transferencia explícita al Center.";s.nextStation="Center";
+   station="Departure";phase="Departure";frequency="124.600";atc=`${cs}, Departure, radar contact. Continue climb and maintain ${c.requestedAltitude||"FL350"}. Turn heading ${s.heading} when able; advise passing 3,000 feet. Contact Oakland Center on 127.000 when advised.`;hint=`${cs}, radar contact, climbing to ${c.requestedAltitude||"FL350"}, heading ${s.heading}.`;explanation="Departure confirma contacto radar, ascenso y rumbo asignado.";s.nextStation="Center";
  }else if(/center|cruise|maintaining|level/.test(msg)||phase==="Cruise"||station==="Center"){
-   station="Center";phase="Cruise";frequency="127.000";atc=cs+", Oakland Center, radar contact. Maintain "+(c.requestedAltitude||"FL350")." . Report reaching cruise altitude. No reported traffic at this time. Expect descent in approximately 40 miles; advise when ready. Maintain present heading unless otherwise instructed.";hint=cs+", Oakland Center, maintaining "+(c.requestedAltitude||"FL350")+", standing by for descent.";explanation="En ruta: confirma nivel, escucha información de tráfico y espera instrucciones de descenso.";if(/ready to descend|request descent|descending/.test(msg)){station="Approach";phase="Approach";frequency="124.000";atc=cs+", descend and maintain 6,000 feet. Expect runway "+ar+" at "+arr[0]+". Advise when leaving your current altitude and contact "+arr[0]+" Approach on 124.000.";hint=cs+", descend and maintain 6,000 feet, expect runway "+ar+".";s.nextStation="Approach";}
+   station="Center";phase="Cruise";frequency="127.000";atc=`${cs}, Oakland Center, radar contact. Maintain ${c.requestedAltitude||"FL350"}. Report reaching cruise altitude. No reported traffic at this time. Expect descent in approximately 40 miles; advise when ready. Maintain present heading unless otherwise instructed.`;hint=`${cs}, Oakland Center, maintaining ${c.requestedAltitude||"FL350"}, standing by for descent.`;explanation="En ruta: confirma nivel, escucha información de tráfico y espera instrucciones de descenso.";if(/ready to descend|request descent|descending/.test(msg)){station="Approach";phase="Approach";frequency="124.000";atc=`${cs}, descend and maintain 6,000 feet. Expect runway ${ar} at ${arr[0]}. Advise when leaving your current altitude and contact ${arr[0]} Approach on 124.000.`;hint=`${cs}, descend and maintain 6,000 feet, expect runway ${ar}.`;s.nextStation="Approach";}
  }else if(/approach|inbound|descending|established/.test(msg)||phase==="Approach"||station==="Approach"){
-   station="Approach";phase="Approach";frequency="124.000";atc=cs+", "+arr[0]+" Approach. Radar contact. Continue descent and maintain 3,000 feet until established; expect runway "+ar+". Report established on the localizer or final approach path. Contact Tower on 118.300 when established.";hint=cs+", maintain 3,000 feet until established, expect runway "+ar+", will contact Tower 118.300.";explanation="Approach da altitud, pista esperada y condición para transferir a Tower.";s.nextStation="Tower";
+   station="Approach";phase="Approach";frequency="124.000";atc=`${cs}, ${arr[0]} Approach. Radar contact. Continue descent and maintain 3,000 feet until established; expect runway ${ar}. Report established on final approach. Contact Tower on 118.300 when established.`;hint=`${cs}, maintain 3,000 feet until established, expect runway ${ar}, will contact Tower 118.300.`;explanation="Approach da altitud, pista esperada y condición para transferir a Tower.";s.nextStation="Tower";
  }else if(/land|final|tower|vacated|runway/.test(msg)||phase==="Landing"){
-   station="Tower";phase="Landing";frequency="118.300";atc=cs+", Tower. Runway "+ar+", cleared to land. Wind "+String(s.simWind||270).padStart(3,"0")+" at 6 knots. After landing, vacate when able; hold clear of the runway and contact Ground on 121.900. Advise runway vacated.";hint=cs+", cleared to land runway "+ar+", will vacate and contact Ground 121.900.";explanation="Autorización de aterrizaje con viento e instrucciones posteriores para liberar pista.";
-   s.nextStation="Ground";
- }else{atc=cs+", say again, please. "+station+" is standing by. State your position and request.";hint=station+", "+cs+", say again with your position and request.";explanation="No identifiqué tu intención; repite la llamada con posición e intención.";}
- return {station:station,phase:phase,frequency:frequency,atc:atc,hint:hint,explanation:explanation,state:s,engine:"AEROFLY ATC CORE"};
+   station="Tower";phase="Landing";frequency="118.300";atc=`${cs}, Tower. Runway ${ar}, cleared to land. Wind ${String(s.simWind||270).padStart(3,"0")} at 6 knots. After landing, vacate when able; hold clear of the runway and contact Ground on 121.900. Advise runway vacated.`;hint=`${cs}, cleared to land runway ${ar}, will vacate and contact Ground 121.900.`;explanation="Autorización de aterrizaje con viento e instrucciones para liberar pista.";s.nextStation="Ground";
+ }else{atc=`${cs}, say again, please. ${station} is standing by. State your position and request.`;hint=`${station}, ${cs}, say again with your position and request.`;explanation="No identifiqué tu intención; repite la llamada con posición e intención.";}
+ return {station,phase,frequency,atc,hint,explanation,state:s,engine:"AEROFLY ATC CORE"};
 }
 function parseAI(text){var a=text.trim(),i=a.indexOf("{"),j=a.lastIndexOf("}");if(i>=0&&j>i)a=a.slice(i,j+1);var d=JSON.parse(a);if(!d.atc||!d.hint)throw Error("Incomplete AI response");d.engine="Gemini";return d;}
 async function gemini(env,message,context,history){
