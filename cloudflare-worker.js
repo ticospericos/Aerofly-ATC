@@ -274,7 +274,7 @@ function core(message,c,history){
   } else if(s.stage==="Approach"&&s.approachVectorStage==="Final"&&/\b(established on final|on final|final approach|runway in sight|visual approach)\b/i.test(msg)){
    var arrivalTraffic=simulatedArrivalConflict(s);
    if(arrivalTraffic){
-    phase="Approach";s.stage="Approach";s.landingHoldIssued=true;
+    phase="Approach";s.stage="Approach";s.landingHoldIssued=true;s.trafficSeparation={active:true,simulated:true,conflict:true,traffic:[{callsign:arrivalTraffic.callsign,aircraft:arrivalTraffic.aircraft,position:arrivalTraffic.position,runway:arrivalTraffic.runway,simulated:true}]};
     atc=cs+", continue approach runway "+ar+", number two. Simulated traffic "+arrivalTraffic.callsign+" is ahead on "+String(arrivalTraffic.position||"final")+". Landing clearance not issued. Report final again when traffic is clear.";
     hint=cs+", continuing approach runway "+ar+", number two behind traffic, "+cs+".";
     explanation="Secuenciación y separación de llegadas simuladas. No hay radar real ni distancias calculadas.";
