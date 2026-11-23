@@ -321,7 +321,7 @@ button:disabled { opacity:.45; }
 
 <section class="card">
   <div class="eyebrow">ACTIVE CONTROLLER</div>
-  <h2 class="section-title" id="stationLabel">CLEARANCE DELIVERY</h2>
+  <h2 class="section-title" id="activeControllerLabel">CLEARANCE DELIVERY</h2>
   <label for="frequency">Assigned radio frequency</label>
   <input id="frequency" value="121.700" readonly>
   <p class="notice">
@@ -598,7 +598,8 @@ $("startFlight").onclick = () => {
   conversationHistory = [];
   station = "Clearance";
   phase = "Preflight";
-  $("stationLabel").textContent = "CLEARANCE DELIVERY";
+  $("stationLabel").textContent = "CLEARANCE";
+  $("activeControllerLabel").textContent = "CLEARANCE DELIVERY";
   $("frequency").value = "121.700";
   $("phaseStatus").textContent = "PREFLIGHT";
   $("phaseName").textContent = "PREFLIGHT";
@@ -679,7 +680,8 @@ $("send").onclick = async () => {
 
     if (data.station) {
       station = data.station;
-      $("stationLabel").textContent = station === "Clearance" ? "CLEARANCE DELIVERY" : station.toUpperCase();
+      $("stationLabel").textContent = station === "Clearance" ? "CLEARANCE" : station.toUpperCase();
+      $("activeControllerLabel").textContent = station === "Clearance" ? "CLEARANCE DELIVERY" : station.toUpperCase();
     }
 
     if (data.frequency) $("frequency").value = data.frequency;
