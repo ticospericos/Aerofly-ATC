@@ -204,9 +204,14 @@ function core(message,c,history){
   frequency="127.000";
   if(/\b(request descent|ready to descend|descending|inbound|request approach|approach)\b/i.test(msg)){
    station="Approach";phase="Approach";frequency="124.000";s.stage="Approach";
-   atc=cs+", "+arr[0]+" Approach. "+s.aircraftProfile.approachProfile+". Descend and maintain "+(s.approachAltitude||"6,000 feet")+". Reduce speed to "+s.aircraftProfile.approachSpeed+" when able. Expect runway "+ar+". Contact Tower on 118.300 when established on final.";
-   hint=cs+", descending to "+(s.approachAltitude||"6,000 feet")+", reducing to "+s.aircraftProfile.approachSpeed+", expect runway "+ar+", "+cs+".";
-   explanation="Descenso simulado hacia destino. Cuando estés establecido en final, llama a Tower.";
+   s.approachAltitude=s.approachAltitude||"6,000 feet";
+   s.approachType=String(c.flightRules||"IFR").toUpperCase()==="VFR"?"visual":"instrument";
+   s.approachRunwayHeading=hdg(ar);
+   s.assignedVectorHeading=(s.approachRunwayHeading+(s.approachRunwayHeading>=180?-20:20)+360)%360;
+   s.approachVectorStage="Vectors";
+   atc=cs+", "+arr[0]+" Approach. Expect "+(s.approachType==="instrument"?"vectors for a simulated instrument approach":"a simulated visual approach")+" runway "+ar+". Turn heading "+String(s.assignedVectorHeading).padStart(3,"0")+". Descend and maintain "+s.approachAltitude+". Reduce speed to "+s.aircraftProfile.approachSpeed+" when able. Report established on the localizer or inbound course.";
+   hint=cs+", heading "+String(s.assignedVectorHeading).padStart(3,"0")+", descending to "+s.approachAltitude+", reducing to "+s.aircraftProfile.approachSpeed+", "+cs+".";
+   explanation="Aproximación simulada con vector inicial. No representa una carta, procedimiento publicado ni guía real de navegación.";
   } else if(s.stage==="Departure"&&!s.cruiseAltitudeAssigned){
    phase="Cruise";s.stage="Cruise";s.cruiseAltitudeAssigned=true;
    atc=cs+", Oakland Center. Climb and maintain "+s.assignedCruiseAltitude+". This is your simulated cruise altitude for the "+s.aircraftProfile.name+". Advise when ready to descend.";
@@ -218,8 +223,30 @@ function core(message,c,history){
   }
  } else if(station==="Approach"){
   phase="Approach";frequency="124.000";s.stage="Approach";
-  atc=cs+", "+arr[0]+" Approach. Continue approach runway "+ar+". Maintain "+s.approachSpeed+" or as previously assigned. Contact Tower on 118.300 when established on final.";
-  hint=cs+", continuing approach runway "+ar+", maintaining "+s.approachSpeed+", will contact Tower on 118.300.";explanation="Confirma la pista prevista y contacta Tower al establecerte en final.";
+  if(s.approachVectorStage==="Vectors"&&/\b(established|localizer|inbound course|intercepting|on the localizer)\b/i.test(msg)){
+   s.approachVectorStage="Final";
+   s.assignedFinalHeading=s.approachRunwayHeading;
+   s.approachAltitude=s.approachAltitude||"3,000 feet";
+   atc=cs+", roger. Turn heading "+String(s.assignedFinalHeading).padStart(3,"0")+". Descend and maintain "+s.approachAltitude+". Maintain "+s.approachSpeed+" or as previously assigned. Report established on final runway "+ar+".";
+   hint=cs+", heading "+String(s.assignedFinalHeading).padStart(3,"0")+", descending to "+s.approachAltitude+", "+cs+".";
+   explanation="Vector final simulado: alinea el rumbo con la orientación de la pista. No sustituye procedimientos reales.";
+  } else if(/\b(established on final|on final|final approach|runway in sight)\b/i.test(msg)){
+   s.approachVectorStage="Final";
+   atc=cs+", roger, runway "+ar+" in use. Contact Tower on 118.300 for landing clearance.";
+   hint=cs+", established on final runway "+ar+", contacting Tower 118.300, "+cs+".";
+   explanation="Confirma que estás establecido en final y solicita autorización de aterrizaje a Tower.";
+  } else if(s.approachVectorStage==="Final"){
+   atc=cs+", "+arr[0]+" Approach. Continue inbound runway "+ar+". Maintain "+s.approachSpeed+" or as previously assigned. Contact Tower on 118.300 when established on final.";
+   hint=cs+", continuing inbound runway "+ar+", maintaining "+s.approachSpeed+", "+cs+".";
+   explanation="Continúa la aproximación y contacta Tower cuando estés establecido en final.";
+  } else {
+   s.approachVectorStage=s.approachVectorStage||"Vectors";
+   s.approachRunwayHeading=s.approachRunwayHeading||hdg(ar);
+   s.assignedVectorHeading=s.assignedVectorHeading==null?(s.approachRunwayHeading+(s.approachRunwayHeading>=180?-20:20)+360)%360:s.assignedVectorHeading;
+   atc=cs+", "+arr[0]+" Approach. Turn heading "+String(s.assignedVectorHeading).padStart(3,"0")+". Descend and maintain "+(s.approachAltitude||"6,000 feet")+". Expect runway "+ar+". Report established on the localizer or inbound course.";
+   hint=cs+", heading "+String(s.assignedVectorHeading).padStart(3,"0")+", descending, expect runway "+ar+", "+cs+".";
+   explanation="Vector inicial de aproximación simulado. No es una instrucción de navegación real.";
+  }
  } else if(station==="Unicom"){
   frequency="122.800";atc=dep[0]+" traffic, "+cs+", radio call received. Continue to announce position and intentions.";
   hint=dep[0]+" traffic, "+cs+", [position and intentions].";explanation="UNICOM es frecuencia de autoanuncio, no control ATC.";
