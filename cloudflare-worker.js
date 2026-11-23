@@ -2,7 +2,6 @@ const ALLOWED_ORIGIN="https://ticospericos.github.io";
 const AIRPORTS=[
 ["Monterey Regional","KMRY",["28L","28R","01L","01R"]],["Salinas Municipal","KSNS",["31","26","08","13"]],["Hollister Municipal","KCVH",["31","24","13","06"]],["Watsonville Municipal","KWVI",["20","06","02","27"]],["San Martin Airport","KE16",["14","32"]],["Reid-Hillview","KRHV",["13L","13R","31L","31R"]],["San José Mineta International","KSJC",["30L","30R","12L","12R"]],["Modesto City-County","KMOD",["28L","28R","10L","10R"]],["Moffett Federal Airfield","KNUQ",["32L","32R","14L","14R"]],["Palo Alto","KPAO",["13","31"]],["Tracy Municipal","KTCY",["30","26","12","08"]],["Stockton Metropolitan","KSCK",["29L","29R","11L","11R"]],["Livermore Municipal","KLVK",["25L","25R","07L","07R"]],["San Carlos","KSQL",["12","30"]],["Half Moon Bay","KHAF",["12","30"]],["San Francisco International","KSFO",["01L","01R","28L","28R","10L","10R","19L","19R"]],["Hayward Executive","KHWD",["28L","28R","10L","10R"]],["Oakland International","KOAK",["30","12","28L","28R","10L","10R","33","15"]],["Byron Airport","KC83",["30","23","12","05"]],["Buchanan Field","KCCR",["01L","01R","32L","32R","19L","19R","14L","14R"]],["Lodi Airport","K1O3",["30","26","12","08"]],["Rio Vista Municipal","KO88",["33","25","07","15"]],["Gnoss Field (Novato)","KDVO",["13","31"]],["Petaluma Municipal","KO69",["11","29"]],["Napa County","KAPC",["06","01L","01R","24","19L","19R"]],["Charles M. Schulz Sonoma County","KSTS",["02","32","20","14"]],["Angwin-Parrett Field","K203",["16","34"]],["Travis Air Force Base","KSUU",["03L","03R","21R","32","21-2","21L"]],["Nut Tree","KVCB",["02","20"]],["Yolo County Airport","KDWA",["16","34"]],["University Airport","KEDU",["35","17"]],["Sacramento Executive","KSAC",["02","30","20","12"]],["Sacramento Mather","KMHR",["04L","04R","22L","22R"]],["Sacramento International","KSMF",["35L","35R","17L","17R"]]
 ];
-const PROMPT="You are AEROFLY-ATC, an immersive flight-simulation ATC companion. Speak concise, natural American aviation radio English, professional and station-appropriate. Never say this is a simulation during normal radio calls. The pilot flies; you have NO telemetry or aircraft position. All weather, clearances, frequencies and traffic are fictional; never imply real-world authorization. Never invent taxiway names or verified routes. Assign departure and arrival runways from supplied runway data. Maintain state and continuity. Maintain the explicit flightState supplied in context across every turn; update its stage after each clearance. A clearance response must set stage to ClearedToTaxi. If the pilot then says ready to taxi or requests taxi without naming a station, route the call to Ground and issue taxi instructions, never repeat the clearance. If the pilot at the runway says holding short or ready for departure without naming a station, route to Tower. Do not repeat an already-issued clearance unless the pilot explicitly requests it again. IMPORTANT: identify the controller the pilot addresses in the opening words of each transmission: Clearance Delivery, Ground, Tower, Departure, Center, Approach, ATIS or UNICOM. The station explicitly called by the pilot takes precedence over previous station/context. Do not make the pilot select a controller in the app. Track phase from radio exchanges and clearances; do not claim to know actual takeoff, altitude or landing without telemetry. Acknowledge MAYDAY/PAN-PAN and emergencies immediately. Handle runway-vacated calls as Ground, not Tower. Return only JSON: station, phase, frequency, atc, hint, explanation, state. State includes assignedDepartureRunway, assignedArrivalRunway, initialAltitude, squawk, stage, phase, lastStation, frequency, atis. Provide concise readback hints. ATIS is fictional and not synchronized with Aerofly.";
 function headers(){return {"Access-Control-Allow-Origin":ALLOWED_ORIGIN,"Access-Control-Allow-Methods":"POST, GET, OPTIONS","Access-Control-Allow-Headers":"Content-Type, Authorization","Vary":"Origin","Content-Type":"application/json; charset=utf-8"};}
 function out(data,status){return new Response(JSON.stringify(data),{status:status||200,headers:headers()});}
 function clean(v,n){return String(v==null?"":v).trim().slice(0,n||200);}
@@ -21,7 +20,8 @@ function core(message,c,history){
  var first=!s.assignedDepartureRunway;
  if(first){s.simWind=270;s.assignedDepartureRunway=runway(dep[2],s.simWind);s.assignedArrivalRunway=runway(arr[2],s.simWind);s.initialAltitude=c.flightRules==="VFR"?"5,500 feet":"5,000 feet";s.squawk=String(1000+Math.floor(Math.random()*7000));s.stage="Clearance";}
  if(!called&&(s.stage==="ClearedToTaxi"||s.stage==="Taxi")&&/\b(ready to taxi|request taxi|taxi clearance|taxi)\b/i.test(msg))called="Ground";
- if(!called&&s.stage==="Taxi"&&/\b(holding short|ready for departure|ready for takeoff)\b/i.test(msg))called="Tower";
+ if(!called&&(s.stage==="Taxi"||s.stage==="HoldingShort")&&/\b(ready for departure|ready for takeoff|request takeoff)\b/i.test(msg))called="Tower";
+ if(!called&&s.stage==="Taxi"&&/\b(holding short|at the hold short|short of runway)\b/i.test(msg))called="Ground";
  if(!called&&(s.stage==="Takeoff"||s.stage==="Departure")&&/\b(airborne|passing|climbing|off the ground)\b/i.test(msg))called="Departure";
  var dr=s.assignedDepartureRunway||"assigned runway",ar=s.assignedArrivalRunway||"assigned runway";
  var station=called||clean(c.station||"Clearance",24),phase=clean(c.phase||s.phase||"Preflight",24),frequency="",atc="",hint="",explanation="";
@@ -37,23 +37,6 @@ function core(message,c,history){
  else{station="Clearance";phase="Preflight";frequency="121.700";atc=cs+", say again. Clearance Delivery.";hint="Clearance Delivery, "+cs+", say again.";explanation="No identifiqué la estación llamada. Repite tu llamada inicial.";}
  s.phase=phase;s.lastStation=station;s.frequency=frequency;
  return {station:station,phase:phase,frequency:frequency,atc:atc,hint:hint,explanation:explanation,state:s,engine:"AEROFLY ATC CORE"};
-}
-function parseAI(text){var a=text.trim(),i=a.indexOf("{"),j=a.lastIndexOf("}");if(i>=0&&j>i)a=a.slice(i,j+1);var d=JSON.parse(a);if(!d.atc||!d.hint)throw Error("Incomplete AI response");d.engine="Gemini";return d;}
-async function gemini(env,message,context,history){
- var contents=(history||[]).slice(-8).map(function(x){return {role:x.role==="model"?"model":"user",parts:[{text:clean(x.text,3000)}]};});
- contents.push({role:"user",parts:[{text:"FLIGHT CONTEXT:\n"+JSON.stringify(context)+"\nPILOT TRANSMISSION:\n"+message}]});
- var payload=JSON.stringify({systemInstruction:{parts:[{text:PROMPT}]},contents:contents,generationConfig:{maxOutputTokens:1200,thinkingConfig:{thinkingLevel:"LOW"},responseMimeType:"application/json"}});
- var lastError;
- for(var attempt=0;attempt<2;attempt++){
-  try{
-   var controller=new AbortController();var timer=setTimeout(function(){controller.abort();},10000);
-   var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+MODEL+":generateContent",{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":env.GEMINI_API_KEY},body:payload,signal:controller.signal});clearTimeout(timer);
-   var raw=await r.text(),data;try{data=JSON.parse(raw);}catch(parseError){throw Error("Gemini returned non-JSON (HTTP "+r.status+"): "+clean(raw,100));}
-   if(!r.ok){var statusError=Error("Gemini HTTP "+r.status+": "+(data.error&&data.error.message||"provider error"));statusError.status=r.status;throw statusError;}
-   var candidate=data.candidates&&data.candidates[0];var t=candidate&&candidate.content&&candidate.content.parts&&candidate.content.parts.map(function(p){return p.text||"";}).join("");if(!t)throw Error("Gemini returned no text (finishReason: "+(candidate&&candidate.finishReason||"unknown")+")");return parseAI(t);
-  }catch(e){lastError=e;if(attempt===0&&([429,500,502,503,504].includes(e.status)||/aborted|timeout/i.test(e.message))){await new Promise(function(resolve){setTimeout(resolve,650);});continue;}break;}
- }
- throw lastError||Error("Gemini unavailable");
 }
 export default {async fetch(request,env){
  var url=new URL(request.url),origin=request.headers.get("Origin")||"";
