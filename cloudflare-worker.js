@@ -443,6 +443,36 @@ function core(message,c,history){
   explanation="No identifiqué la estación llamada. Repite tu llamada inicial.";
  }
  s.phase=phase;s.lastStation=station;s.frequency=frequency;s.updatedAt=new Date().toISOString();
+// Persistent simulator-side lifecycle and compact flight recorder. Telemetry is not connected.
+var previousLifecycle=s.flightLifecycle||{};
+var previousPhase=previousLifecycle.phase||"Preflight";
+var lifecycle={
+ phase:phase,
+ station:station,
+ previousPhase:previousPhase,
+ lastPilotCall:String(message||"").slice(0,180),
+ transitionCount:(Number(previousLifecycle.transitionCount)||0)+(previousPhase!==phase?1:0),
+ updatedAt:s.updatedAt,
+ telemetry:"NOT_CONNECTED",
+ groundOperation:previousLifecycle.groundOperation||"NOT_STARTED",
+ approachStatus:previousLifecycle.approachStatus||"NOT_STARTED"
+};
+if(/taxi|pushback/i.test(msg))lifecycle.groundOperation="TAXI_OR_PUSHBACK";
+if(/holding short/i.test(msg))lifecycle.groundOperation="HOLDING_SHORT";
+if(/airborne|positive rate|climbing out|off the ground/i.test(msg))lifecycle.groundOperation="AIRBORNE";
+if(/localizer|glideslope|established on final|final approach/i.test(msg))lifecycle.approachStatus="IN_PROGRESS";
+if(/missed approach|go.?around/i.test(msg))lifecycle.approachStatus="MISSED_APPROACH";
+if(/vacated|clear of runway|runway clear|parked|shut ?down/i.test(msg))lifecycle.groundOperation="LANDED_OR_PARKED";
+if(phase==="Landing"&&lifecycle.approachStatus!=="MISSED_APPROACH")lifecycle.approachStatus="LANDING";
+s.flightLifecycle=lifecycle;
+if(!s.flightRecorder||typeof s.flightRecorder!=="object")s.flightRecorder={transmissions:0,readbackErrors:0,phaseChanges:0,events:[]};
+s.flightRecorder.transmissions=(Number(s.flightRecorder.transmissions)||0)+1;
+if(previousPhase!==phase)s.flightRecorder.phaseChanges=(Number(s.flightRecorder.phaseChanges)||0)+1;
+if(s.lastReadback&&s.lastReadback.ok===false)s.flightRecorder.readbackErrors=(Number(s.flightRecorder.readbackErrors)||0)+1;
+s.flightRecorder.events=Array.isArray(s.flightRecorder.events)?s.flightRecorder.events:[];
+s.flightRecorder.events.push({phase:phase,station:station,pilotCall:String(message||"").slice(0,120),atc:String(atc||"").slice(0,220),timestamp:s.updatedAt});
+s.flightRecorder.events=s.flightRecorder.events.slice(-20);
+
  return {station:station,phase:phase,frequency:frequency,atc:atc,hint:hint,explanation:explanation,state:s,engine:"AEROFLY ATC CORE"};
 }
 export default {async fetch(request,env){
