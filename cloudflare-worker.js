@@ -83,8 +83,9 @@ function core(message,c,history){
  var cs=clean(c.callsign||"November Niner Charlie Bravo",80),ac=clean(c.aircraft||"Learjet 45",50),s=stateFrom(history,c);
  var emergency=/\b(mayday|pan.?pan|engine fail|engine out|fire|smoke|medical|bird strike|emergency|lost comms|lost communication|lost communications|radio failure|radio out|unable to communicate|unable to transmit|unable to receive|two.?way radio failure|communications failure|comms failure|wind shear|microburst|severe turbulence|icing)\b/i.test(message);
  var called="";
+ if(/\b(go.?around|going around|missed approach)\b/i.test(msg)&&/approach|landing|go.?around/i.test(String(s.stage||c.phase||"")))called="Tower";
  var calls=[["Clearance",/\b(clearance delivery|clearance)\b/i],["Ground",/\bground\b/i],["Tower",/\btower\b/i],["Departure",/\bdeparture\b/i],["Center",/\b(center)\b/i],["Approach",/\bapproach\b/i],["ATIS",/\b(atis|information|weather report|request weather)\b/i],["Unicom",/\b(unicom|traffic)\b/i]];
- for(var ci=0;ci<calls.length;ci++){if(calls[ci][1].test(msg)){called=calls[ci][0];break;}}
+ if(!called){for(var ci=0;ci<calls.length;ci++){if(calls[ci][1].test(msg)){called=calls[ci][0];break;}}}
  var stage=s.stage||"Preflight";
  s.flightId=clean(c.flightId||s.flightId,100);
  s.stateVersion=2;
@@ -264,7 +265,7 @@ function core(message,c,history){
    hint=cs+", taxi to parking, "+cs+".";
    explanation="Sigue las calles señalizadas en Aerofly hasta el estacionamiento.";
   } else if(s.stage!=="HoldingShort"){
-   phase="Holding Short";
+   phase="Holding Short";s.stage="HoldingShort";
    atc=cs+", hold short runway "+dr+". Report holding short and ready for departure before takeoff clearance.";
    hint=cs+", holding short runway "+dr+", "+cs+".";
    explanation="Tower no autoriza el despegue hasta que el piloto confirme que está en posición de espera.";
