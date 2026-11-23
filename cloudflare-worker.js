@@ -245,10 +245,25 @@ function core(message,c,history){
   explanation="Confirma el ascenso y contacta Center cuando estés establecido en ruta.";
  } else if(station==="Center"){
   frequency="127.000";
+  var altitudeMatch=spokenDigits(msg).match(/\b(?:request altitude|request climb to|request descent to|climb to|descend to|maintain)\s*(\d{4,6})\s*(?:feet|ft)?\b|\bflight level\s*(\d{2,3})\b/i);
   var directMatch=msg.match(/\b(?:request direct to|direct to|proceed direct to|request direct|proceed direct)\s+(?:waypoint\s+)?([a-z0-9]{2,8})\b/i);
   var passedMatch=msg.match(/\b(?:over|abeam|passed)\s+(?:waypoint\s+)?([a-z0-9]{2,8})\b/i);
   var diversionMatch=msg.match(/\b(?:request diversion to|divert(?:ing)? to|alternate(?: airport)?\s+)([a-z0-9]{3,4})\b/i);
-  if(/\b(request diversion|divert due to weather|weather diversion|request alternate)\b/i.test(msg)&&!diversionMatch){
+  if(altitudeMatch){
+   var requestedAltitude=Number(altitudeMatch[1]||altitudeMatch[2]);
+   if(altitudeMatch[2])requestedAltitude*=100;
+   if(requestedAltitude<1000||requestedAltitude>45000){
+    atc=cs+", unable altitude request. State an altitude between 1,000 and 45,000 feet for this simulation.";
+    hint=cs+", request an altitude within the simulated operating range.";
+    explanation="Límite interno de la simulación; no representa autorización ni límites reales de la aeronave.";
+   }else{
+    s.assignedCruiseAltitude=requestedAltitude.toLocaleString("en-US")+" feet";
+    s.requestedAltitude=s.assignedCruiseAltitude;
+    atc=cs+", altitude change approved. Climb and maintain "+s.assignedCruiseAltitude+". Report level.";
+    hint=cs+", climbing to "+s.assignedCruiseAltitude+", will report level, "+cs+".";
+    explanation="Cambio de altitud guardado en la memoria de vuelo. Confirma y ajusta la altitud manualmente en Aerofly.";
+   }
+  }else if(/\b(request diversion|divert due to weather|weather diversion|request alternate)\b/i.test(msg)&&!diversionMatch){
    s.diversionRequested=true;
    atc=cs+", weather deviation acknowledged. State your requested alternate airport and fuel endurance. Maintain present altitude and advise if conditions worsen.";
    hint=cs+", request weather diversion, alternate airport and fuel endurance.";
