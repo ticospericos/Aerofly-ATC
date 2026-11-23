@@ -352,7 +352,7 @@ button:disabled { opacity:.45; }
     <p id="atcText">
       AEROFLY-ATC online. Select your airports and controller to begin.
     </p>
-    <div class="row" style="margin-top:8px"><button id="speakAtc">▶ Play ATC Voice</button><button id="trafficToggle">Background Traffic: OFF</button><button id="trafficNow">▶ Traffic Sample</button></div><div class="notice" id="voiceStatus" style="margin-top:6px">VOICE ENGINE · INITIALIZING</div><div class="notice" id="trafficStatus" style="margin-top:4px">Background radio is off.</div>
+    <div class="row" style="margin-top:8px"><button id="speakAtc">▶ Play ATC Voice</button><button id="trafficToggle">TRAFFIC OFF</button></div><div class="notice" id="voiceStatus" style="margin-top:6px">VOICE ENGINE · INITIALIZING</div><div class="notice" id="trafficStatus" style="margin-top:4px">Background radio is off.</div>
   </div>
 
   <label for="transcript">Your radio transmission</label>
@@ -996,30 +996,45 @@ const trafficCalls = [
   "Salinas Traffic, Piper Six Five Kilo, turning left downwind runway three one.",
   "San Francisco Ground, United Four Twenty, taxiing to gate, request frequency change."
 ];
-function playTrafficSample() {
-  if (!("speechSynthesis" in window) || atcSpeaking || window.speechSynthesis.speaking) return;
+
+function scheduleBackgroundTraffic(delay = 35000 + Math.random() * 30000) {
+  if (!backgroundTrafficEnabled) return;
+  if (backgroundTrafficTimer) clearTimeout(backgroundTrafficTimer);
+  backgroundTrafficTimer = setTimeout(playBackgroundTraffic, delay);
+}
+
+async function playBackgroundTraffic() {
+  backgroundTrafficTimer = null;
+  if (!backgroundTrafficEnabled) return;
+  if (atcSpeaking || (("speechSynthesis" in window) && window.speechSynthesis.speaking)) {
+    scheduleBackgroundTraffic(6000);
+    return;
+  }
   const call = trafficCalls[trafficIndex % trafficCalls.length];
   trafficIndex++;
-  speak(call, {traffic:true, interrupt:false});
   $("trafficStatus").textContent = "SIMULATED RADIO: " + call;
+  await speak(call, {traffic:true, interrupt:false});
+  scheduleBackgroundTraffic();
 }
+
 function stopBackgroundTraffic() {
   backgroundTrafficEnabled = false;
-  if (backgroundTrafficTimer) clearInterval(backgroundTrafficTimer);
+  if (backgroundTrafficTimer) clearTimeout(backgroundTrafficTimer);
   backgroundTrafficTimer = null;
-  $("trafficToggle").textContent = "Background Traffic: OFF";
+  $("trafficToggle").textContent = "TRAFFIC OFF";
   $("trafficStatus").textContent = "Background radio is off.";
 }
-$("trafficToggle").onclick = () => {
-  if (backgroundTrafficEnabled) { stopBackgroundTraffic(); return; }
-  backgroundTrafficEnabled = true;
-  $("trafficToggle").textContent = "Background Traffic: ON";
-  $("trafficStatus").textContent = "Simulated radio traffic enabled. Callouts play between ATC transmissions.";
-  playTrafficSample();
-  backgroundTrafficTimer = setInterval(playTrafficSample, 42000);
-};
-$("trafficNow").onclick = playTrafficSample;
 
+$("trafficToggle").onclick = () => {
+  if (backgroundTrafficEnabled) {
+    stopBackgroundTraffic();
+    return;
+  }
+  backgroundTrafficEnabled = true;
+  $("trafficToggle").textContent = "TRAFFIC ON";
+  $("trafficStatus").textContent = "Simulated pilot communications enabled. Radio calls will play automatically between ATC transmissions.";
+  scheduleBackgroundTraffic(7000 + Math.random() * 8000);
+};
 function normalizeAviationTranscript(text) {
   let value = String(text || "");
   const descentContext = ["Departure", "Cruise", "Approach"].includes(phase)
