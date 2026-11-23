@@ -291,10 +291,8 @@ button:disabled { opacity:.45; }
       <label for="aircraft">Aircraft</label>
       <select id="aircraft">
         <option>Learjet 45</option>
-        <option>Cessna 172</option>
-        <option>King Air</option>
         <option>Airbus A320</option>
-        <option>Boeing 737</option>
+        <option>Cessna 172</option>
       </select>
     </div>
     <div>
@@ -306,23 +304,11 @@ button:disabled { opacity:.45; }
       <select id="destination"></select>
     </div>
     <div>
-      <label for="departureRunway">Departure runway · Aerofly</label>
-      <select id="departureRunway"></select>
-    </div>
-    <div>
-      <label for="arrivalRunway">Arrival runway · Aerofly</label>
-      <select id="arrivalRunway"></select>
-    </div>
-    <div>
       <label for="flightType">Flight rules</label>
       <select id="flightType">
         <option>IFR</option>
         <option>VFR</option>
       </select>
-    </div>
-    <div>
-      <label for="altitude">Requested altitude</label>
-      <input id="altitude" value="FL350">
     </div>
   </div>
 
@@ -334,26 +320,12 @@ button:disabled { opacity:.45; }
 </section>
 
 <section class="card">
-  <div class="eyebrow">ATC STATION</div>
-  <h2 class="section-title">Select Controller</h2>
-
-  <div class="tabs" id="stations">
-    <button class="active" data-station="Clearance">Clearance</button>
-    <button data-station="Ground">Ground</button>
-    <button data-station="Tower">Tower</button>
-    <button data-station="Departure">Departure</button>
-    <button data-station="Center">Center</button>
-    <button data-station="Approach">Approach</button>
-    <button data-station="ATIS">ATIS</button>
-    <button data-station="Unicom">Unicom</button>
-  </div>
-
-  <label for="frequency">Radio frequency</label>
-  <input id="frequency" value="122.800" inputmode="decimal">
-
+  <div class="eyebrow">ACTIVE CONTROLLER</div>
+  <h2 class="section-title" id="stationLabel">CLEARANCE DELIVERY</h2>
+  <label for="frequency">Assigned radio frequency</label>
+  <input id="frequency" value="121.700" readonly>
   <p class="notice">
-    Simulation frequency only. Verify the correct frequency separately.
-    Change the radio manually inside Aerofly.
+    Controller is detected from the station you call. Tune the assigned frequency manually in Aerofly.
   </p>
 </section>
 
@@ -410,31 +382,17 @@ button:disabled { opacity:.45; }
 </section>
 
 <section class="card full">
-  <div class="eyebrow">FLIGHT PHASE</div>
-  <h2 class="section-title">Update Flight Phase</h2>
-
+  <div class="eyebrow">FLIGHT PROGRESSION</div>
+  <h2 class="section-title">Automatic Flight Phase</h2>
   <div class="phase-current">
     <div>
       <div class="eyebrow">CURRENT FLIGHT PHASE</div>
       <strong id="phaseName">PREFLIGHT</strong>
     </div>
-    <span class="status" id="phaseDescription">Before departure</span>
+    <span class="status" id="phaseDescription">Awaiting clearance</span>
   </div>
-
-  <div class="tabs" id="phases">
-    <button class="active" data-phase="Preflight">Preflight</button>
-    <button data-phase="Taxi">Taxi</button>
-    <button data-phase="Takeoff">Takeoff</button>
-    <button data-phase="Departure">Departure</button>
-    <button data-phase="Cruise">Cruise</button>
-    <button data-phase="Approach">Approach</button>
-    <button data-phase="Landing">Landing</button>
-    <button data-phase="Emergency">Emergency</button>
-  </div>
-
   <p class="notice">
-    Update your phase manually. This application does not receive Aerofly telemetry
-    or know your exact aircraft position.
+    Phase progression follows your radio calls and ATC clearances. AEROFLY-ATC does not receive aircraft position or simulator telemetry.
   </p>
 </section>
 
@@ -522,20 +480,8 @@ function airport(code) {
   return airports.find(a => a[1] === code) || [code,code,[]];
 }
 
-function fillRunwaySelect(selectId, airportData) {
-  const select = $(selectId);
-  const previous = select.value;
-  select.innerHTML = "";
-  select.add(new Option("Select runway from Aerofly", ""));
-  (airportData[2] || []).forEach(runway => {
-    select.add(new Option("Runway " + runway, runway));
-  });
-  if ((airportData[2] || []).includes(previous)) select.value = previous;
-}
-
 function updateRunwayOptions() {
-  fillRunwaySelect("departureRunway", airport(origin.value));
-  fillRunwaySelect("arrivalRunway", airport(destination.value));
+  // Runways are assigned by ATC during the clearance; no pilot-side runway selector.
 }
 
 
@@ -579,42 +525,18 @@ function hint() {
   const o = airport(origin.value);
   const d = airport(destination.value);
   const c = $("callsign").value.trim() || "November Niner Charlie Bravo";
-  const altitude = $("altitude").value.trim() || "assigned altitude";
-  const departureRunway = $("departureRunway").value;
-  const arrivalRunway = $("arrivalRunway").value;
-
-  const hints = {
-    Clearance:
-      `${o[1]} Clearance, ${c}, Learjet 45, ${$("flightType").value} to ${d[0]}, request clearance.`,
-
-    Ground:
-      `${o[0]} Ground, ${c}, at [parking position], request taxi for departure to ${d[0]}${departureRunway ? ", Runway " + departureRunway : ""}.`,
-
-    Tower:
-      `${o[0]} Tower, ${c}, holding short Runway ${departureRunway || "[assigned runway]"}, ready for departure.`,
-
-    Departure:
-      `${o[0]} Departure, ${c}, passing [altitude], climbing to ${altitude}.`,
-
-    Center:
-      `Center, ${c}, maintaining ${altitude}.`,
-
-    Approach:
-      `${d[0]} Approach, ${c}, [position and altitude], inbound for landing${arrivalRunway ? ", Runway " + arrivalRunway : ""}.`,
-
-    ATIS:
-      `Listen to the airport information broadcast. Note the information code and report it when contacting the controller.`,
-
-    Unicom:
-      `${o[0]} traffic, ${c}, [position and intentions].`
+  const examples = {
+    Clearance: `${o[1]} Clearance, ${c}, ${$("aircraft").value}, ${$("flightType").value} to ${d[0]}, ready to copy clearance.`,
+    Ground: `${o[0]} Ground, ${c}, ready to taxi.`,
+    Tower: `${o[0]} Tower, ${c}, holding short, ready for departure.`,
+    Departure: `${o[0]} Departure, ${c}, passing [altitude], climbing as cleared.`,
+    Center: `Center, ${c}, checking in, maintaining assigned altitude.`,
+    Approach: `${d[0]} Approach, ${c}, inbound, [altitude].`,
+    ATIS: `Request airport information.`,
+    Unicom: `${o[0]} traffic, ${c}, [position and intentions].`
   };
-
-  $("hintText").textContent = hints[station] || hints.Clearance;
-
-  $("hintExplain").textContent =
-    station === "ATIS"
-    ? "ATIS is an information broadcast, not an air traffic control clearance."
-    : "Runways selected here are simulator-side planning references, not automatic ATC assignments. Confirm the active runway in Aerofly/ATIS and follow the controller\u2019s actual instruction.";
+  $("hintText").textContent = examples[station] || examples.Clearance;
+  $("hintExplain").textContent = "Call the controller by name. The ATC system identifies the station from your transmission; read back clearances and tune frequencies manually in Aerofly.";
 }
 
 function updateDirectory() {
@@ -672,67 +594,19 @@ function updateDirectory() {
   }
 }
 
-$("stations").addEventListener("click",e => {
-  const button = e.target.closest("button[data-station]");
-  if (!button) return;
-
-  station = button.dataset.station;
-
-  document.querySelectorAll("#stations button").forEach(b => {
-    b.classList.toggle("active",b === button);
-  });
-
-  $("stationLabel").textContent = station.toUpperCase();
-
-  hint();
-
-  setAtc(
-    `${station} selected. ${airport(origin.value)[0]} (${origin.value}). November Niner Charlie Bravo, make your call when ready.`
-  );
-});
-
-$("phases").addEventListener("click",e => {
-  const button = e.target.closest("button[data-phase]");
-  if (!button) return;
-
-  phase = button.dataset.phase;
-
-  document.querySelectorAll("#phases button").forEach(b => {
-    b.classList.toggle("active",b === button);
-  });
-
-  const phaseDescriptions = {
-    Preflight:"Before departure",
-    Taxi:"Taxiing to the runway",
-    Takeoff:"Takeoff and initial climb",
-    Departure:"Leaving the departure area",
-    Cruise:"En route",
-    Approach:"Arriving and descending",
-    Landing:"Landing and runway vacated",
-    Emergency:"Emergency situation"
-  };
-
-  $("phaseStatus").textContent = phase.toUpperCase();
-  $("phaseName").textContent = phase.toUpperCase();
-  $("phaseDescription").textContent = phaseDescriptions[phase] || "";
-
-  log("FLIGHT PHASE",phase);
-});
-
 $("startFlight").onclick = () => {
-
-  $("flightStatus").textContent =
-    "Active · " + origin.value + " → " + destination.value;
-
-  log(
-    "FLIGHT",
-    "New simulated flight: " + origin.value + " to " + destination.value
-  );
-
-  setAtc(
-    `${$("callsign").value.trim() || "November Niner Charlie Bravo"}, ${airport(origin.value)[0]} to ${airport(destination.value)[0]}. Clearance Delivery is available when ready to copy your clearance.`
-  );
-
+  conversationHistory = [];
+  station = "Clearance";
+  phase = "Preflight";
+  $("stationLabel").textContent = "CLEARANCE DELIVERY";
+  $("frequency").value = "121.700";
+  $("phaseStatus").textContent = "PREFLIGHT";
+  $("phaseName").textContent = "PREFLIGHT";
+  $("phaseDescription").textContent = "Awaiting clearance";
+  $("flightStatus").textContent = "Active · " + origin.value + " → " + destination.value;
+  $("log").innerHTML = "";
+  log("FLIGHT", "New flight: " + origin.value + " to " + destination.value + ". Radio initialized at Clearance Delivery.");
+  setAtc(`${$("callsign").value.trim() || "November Niner Charlie Bravo"}, ${airport(origin.value)[0]} to ${airport(destination.value)[0]}. Clearance Delivery, standing by for your clearance request.`);
   hint();
 };
 
@@ -755,11 +629,8 @@ destination.onchange = () => {
   hint();
 };
 
-$("departureRunway").onchange = hint;
-$("arrivalRunway").onchange = hint;
-
 $("callsign").oninput = hint;
-$("altitude").oninput = hint;
+$("aircraft").onchange = hint;
 $("flightType").onchange = hint;
 
 $("speakAtc").onclick = () => {
@@ -784,10 +655,10 @@ $("send").onclick = async () => {
     origin: { name: from[0], icao: from[1], runways: from[2] },
     destination: { name: to[0], icao: to[1], runways: to[2] },
     flightRules: $("flightType").value,
-    requestedAltitude: $("altitude").value.trim(),
     station,
     phase,
-    frequency: $("frequency").value.trim()
+    frequency: $("frequency").value.trim(),
+    automaticControllerSelection: true
   };
 
   try {
@@ -808,22 +679,16 @@ $("send").onclick = async () => {
 
     if (data.station) {
       station = data.station;
-      document.querySelectorAll("#stations button").forEach(button => {
-        button.classList.toggle("active", button.dataset.station === station);
-      });
-      $("stationLabel").textContent = station.toUpperCase();
+      $("stationLabel").textContent = station === "Clearance" ? "CLEARANCE DELIVERY" : station.toUpperCase();
     }
 
     if (data.frequency) $("frequency").value = data.frequency;
 
     if (data.phase) {
       phase = data.phase;
-      document.querySelectorAll("#phases button").forEach(button => {
-        button.classList.toggle("active", button.dataset.phase === phase);
-      });
       $("phaseStatus").textContent = phase.toUpperCase();
       $("phaseName").textContent = phase.toUpperCase();
-      $("phaseDescription").textContent = "Updated from ATC conversation";
+      $("phaseDescription").textContent = "Updated from radio exchange";
     }
 
     $("hintText").textContent = data.hint;
@@ -914,6 +779,7 @@ $("micButton").onclick = () => {
 $("airportSearch").addEventListener("input",updateDirectory);
 
 updateRunwayOptions();
+$("stationLabel").textContent = "CLEARANCE DELIVERY";
 hint();
 updateDirectory();
 
