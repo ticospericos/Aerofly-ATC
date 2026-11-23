@@ -131,12 +131,12 @@ function core(message,c,history){
   if(s.stage==="ClearedToTaxi"&&!/\b(repeat|say again|say that again|unable to copy)\b/i.test(msg)){
    var check=readbackCheck(message,s);
    if(check.errors.length){
-    s.readbackStatus="correction-required";s.readbackPending=true;
+    s.readbackStatus="correction-required";s.readbackPending=true;s.clearanceReadbackVerified=false;
     atc=cs+", negative. Check your readback: "+check.errors.join("; ")+". The assigned clearance remains runway "+dr+", initial altitude "+s.initialAltitude+", squawk "+s.squawk+". Say again.";
     hint=cs+", runway "+dr+", initial altitude "+s.initialAltitude+", squawk "+s.squawk+".";
     explanation="El readback contiene datos incorrectos. La autorización original sigue vigente; corrige los datos indicados.";
    } else if(check.missing.length){
-    s.readbackStatus="incomplete";s.readbackPending=true;
+    s.readbackStatus="incomplete";s.readbackPending=true;s.clearanceReadbackVerified=false;
     atc=cs+", say again. Read back runway "+dr+", initial altitude "+s.initialAltitude+", and squawk "+s.squawk+".";
     hint=cs+", runway "+dr+", initial altitude "+s.initialAltitude+", squawk "+s.squawk+".";
     explanation="Faltan datos en la lectura de vuelta. Confirma pista, altitud inicial y código transponder.";
