@@ -140,6 +140,11 @@ function core(message,c,history){
    atc=cs+", pushback and engine start approved. Start at your discretion and advise when pushback is complete. Use the pushback guidance in your simulator.";
    hint=cs+", pushback and engine start approved, will advise when pushback is complete, "+cs+".";
    explanation="Autorización de pushback y arranque simulada. Sigue las indicaciones visuales de Aerofly; no se genera una ruta física.";
+  } else if(s.stage==="Pushback"&&!/\b(pushback complete|pushback completed|ready to taxi|ready for taxi)\b/i.test(msg)){
+   phase="Ground Operations";s.stage="Pushback";
+   atc=cs+", pushback remains approved. Complete pushback and engine start, then advise when ready to taxi.";
+   hint=cs+", pushback in progress, will advise when complete, "+cs+".";
+   explanation="El estado de pushback se conserva hasta que confirmes que terminó.";
   } else if(s.stage==="Pushback"&&/\b(pushback complete|pushback completed|ready to taxi|ready for taxi)\b/i.test(msg)){
    phase="Taxi";s.stage="Taxi";
    atc=cs+", roger, pushback complete. Taxi to runway "+dr+" and hold short. Follow the taxiway markings shown in your simulator. Contact Tower on 118.300 when holding short.";
