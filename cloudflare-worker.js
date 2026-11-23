@@ -21,9 +21,9 @@ function core(message,c,history){
  for(var ci=0;ci<calls.length;ci++){if(calls[ci][1].test(msg)){called=calls[ci][0];break;}}
  var first=!s.assignedDepartureRunway;
  if(first){s.simWind=270;s.assignedDepartureRunway=runway(dep[2],s.simWind);s.assignedArrivalRunway=runway(arr[2],s.simWind);s.initialAltitude=c.flightRules==="VFR"?"5,500 feet":"5,000 feet";s.squawk=String(1000+Math.floor(Math.random()*7000));s.stage="Clearance";}
- if(!called&&s.stage==="ClearedToTaxi"&&/\\b(ready to taxi|request taxi|taxi clearance)\\b/i.test(msg))called="Ground";
- if(!called&&s.stage==="Taxi"&&/\\b(holding short|ready for departure|ready for takeoff)\\b/i.test(msg))called="Tower";
- if(!called&&(s.stage==="Takeoff"||s.stage==="Departure")&&/\\b(airborne|passing|climbing|off the ground)\\b/i.test(msg))called="Departure";
+ if(!called&&s.stage==="ClearedToTaxi"&&/\b(ready to taxi|request taxi|taxi clearance)\\b/i.test(msg))called="Ground";
+ if(!called&&s.stage==="Taxi"&&/\b(holding short|ready for departure|ready for takeoff)\\b/i.test(msg))called="Tower";
+ if(!called&&(s.stage==="Takeoff"||s.stage==="Departure")&&/\b(airborne|passing|climbing|off the ground)\\b/i.test(msg))called="Departure";
  var dr=s.assignedDepartureRunway||"assigned runway",ar=s.assignedArrivalRunway||"assigned runway";
  var station=called||clean(c.station||"Clearance",24),phase=clean(c.phase||s.phase||"Preflight",24),frequency="",atc="",hint="",explanation="";
  if(emergency){station=called&&called!=="ATIS"?called:"Tower";phase="Emergency";frequency="121.500";atc=cs+", emergency acknowledged. State nature of distress, intentions, persons on board and fuel endurance. Maintain present heading if able.";hint=cs+", MAYDAY/PAN-PAN, "+ac+", "+clean(message,120)+". Request immediate assistance.";explanation="Declara la emergencia e informa naturaleza, intenciones, personas a bordo y combustible.";s.stage="Emergency";}
@@ -43,14 +43,14 @@ function parseAI(text){var a=text.trim(),i=a.indexOf("{"),j=a.lastIndexOf("}");i
 async function gemini(env,message,context,history){
  var contents=(history||[]).slice(-8).map(function(x){return {role:x.role==="model"?"model":"user",parts:[{text:clean(x.text,3000)}]};});
  contents.push({role:"user",parts:[{text:"FLIGHT CONTEXT:\n"+JSON.stringify(context)+"\nPILOT TRANSMISSION:\n"+message}]});
- var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+MODEL+":generateContent",{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":env.GEMINI_API_KEY},body:JSON.stringify({systemInstruction:{parts:[{text:PROMPT}]},contents:contents,generationConfig:{temperature:0.55,maxOutputTokens:700,responseMimeType:"application/json"}})});
+ var r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+MODEL+":generateContent",{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":env.GEMINI_API_KEY},body:JSON.stringify({systemInstruction:{parts:[{text:PROMPT}]},contents:contents,generationConfig:{maxOutputTokens:1600,thinkingConfig:{thinkingLevel:"LOW"},responseMimeType:"application/json"}})});
  var data=await r.json();if(!r.ok)throw Error("Gemini HTTP "+r.status+": "+(data.error&&data.error.message||"provider error"));
- var t=data.candidates&&data.candidates[0]&&data.candidates[0].content&&data.candidates[0].content.parts.map(function(p){return p.text||"";}).join("");if(!t)throw Error("Gemini returned empty output");return parseAI(t);
+ var candidate=data.candidates&&data.candidates[0];var t=candidate&&candidate.content&&candidate.content.parts&&candidate.content.parts.map(function(p){return p.text||"";}).join("");if(!t)throw Error("Gemini returned no text (finishReason: "+(candidate&&candidate.finishReason||"unknown")+")");return parseAI(t);
 }
 export default {async fetch(request,env){
  var url=new URL(request.url),origin=request.headers.get("Origin")||"";
  if(request.method==="OPTIONS")return new Response(null,{headers:headers()});
- if(request.method==="GET"&&url.pathname==="/health")return out({ok:true,service:"AEROFLY-ATC Brain",engines:["Gemini","AEROFLY ATC CORE"],model:MODEL});
+ if(request.method==="GET"&&url.pathname==="/health")return out({ok:true,service:"AEROFLY-ATC Brain",engines:["Gemini","AEROFLY ATC CORE"],model:MODEL,geminiConfigured:Boolean(env.GEMINI_API_KEY)});
  if(request.method!=="POST"||url.pathname!=="/atc")return out({error:"Use POST /atc or GET /health"},404);
  if(origin&&origin!==ALLOWED_ORIGIN)return out({error:"Origin not allowed"},403);
  try{var body=await request.json(),message=clean(body.message,3000),context=body.context||{},history=Array.isArray(body.history)?body.history.slice(-8):[];if(!message)return out({error:"Message is required"},400);
