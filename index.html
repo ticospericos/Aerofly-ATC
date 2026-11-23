@@ -515,6 +515,8 @@ let station = "Clearance";
 let phase = "Preflight";
 let recognition = null;
 let recognizing = false;
+const ATC_API = "https://aerofly-atc-brain.fy5794mdw9.workers.dev/atc";
+let conversationHistory = [];
 
 function airport(code) {
   return airports.find(a => a[1] === code) || [code,code,[]];
@@ -764,60 +766,77 @@ $("speakAtc").onclick = () => {
   speak($("atcText").textContent);
 };
 
-$("send").onclick = () => {
-  const text = $("transcript").value.trim();
-  if (!text) return;
+$("send").onclick = async () => {
+  const message = $("transcript").value.trim();
+  if (!message) return;
 
   const callsign = $("callsign").value.trim() || "November Niner Charlie Bravo";
+  const from = airport(origin.value);
+  const to = airport(destination.value);
+  log("PILOT · " + callsign, message, "you");
+  $("send").disabled = true;
+  $("send").textContent = "Contacting ATC...";
+  $("micStatus").textContent = "ATC THINKING...";
 
-  log("PILOT · " + callsign,text,"you");
+  const context = {
+    callsign,
+    aircraft: $("aircraft").value,
+    origin: { name: from[0], icao: from[1], runways: from[2] },
+    destination: { name: to[0], icao: to[1], runways: to[2] },
+    flightRules: $("flightType").value,
+    requestedAltitude: $("altitude").value.trim(),
+    station,
+    phase,
+    frequency: $("frequency").value.trim()
+  };
 
-  const lower = text.toLowerCase();
+  try {
+    const response = await fetch(ATC_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message, context, history: conversationHistory.slice(-8) })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.details || data.error || "ATC service returned HTTP " + response.status);
+    if (!data.atc || !data.hint) throw new Error("ATC response was incomplete. Please transmit again.");
 
-  if (/mayday|pan-pan|engine failure|engine shut|fire|smoke|emergency/.test(lower)) {
-    const emergencyDetail = /engine failure|engine shut/.test(lower)
-      ? "Engine failure reported. Say your present position, altitude, souls on board, and intentions."
-      : /smoke|fire/.test(lower)
-      ? "Smoke or fire reported. Say your present position, altitude, souls on board, and intentions."
-      : "Emergency call acknowledged. Say your present position, altitude, souls on board, and intentions.";
-    setAtc(
-      `${callsign}, roger, MAYDAY acknowledged. ${emergencyDetail}`
+    conversationHistory.push(
+      { role: "user", text: message },
+      { role: "model", text: JSON.stringify(data) }
     );
-  } else if (station === "ATIS") {
-    setAtc(
-      "Information received. Contact the appropriate simulated controller when ready. ATIS does not issue clearances."
-    );
-  } else if (station === "Clearance") {
-    setAtc(
-      `${callsign}, roger. Say your requested route, flight rules, requested altitude, and ATIS information. Stand by for clearance.`
-    );
-  } else if (station === "Ground") {
-    setAtc(
-      `${callsign}, Ground. Say your parking position and advise when you are ready to taxi.`
-    );
-  } else if (station === "Tower") {
-    setAtc(
-      `${callsign}, Tower. Confirm the runway and report when holding short. Advise when ready for departure.`
-    );
-  } else if (station === "Departure") {
-    setAtc(
-      `${callsign}, Departure. Say your present altitude and assigned altitude.`
-    );
-  } else if (station === "Center") {
-    setAtc(
-      `${callsign}, Center. Say your present altitude and requested flight level.`
-    );
-  } else if (station === "Approach") {
-    setAtc(
-      `${callsign}, Approach. Say your position, altitude, and ATIS information.`
-    );
-  } else {
-    setAtc(
-      `${callsign}, traffic copied. Report your position and intentions.`
-    );
+    conversationHistory = conversationHistory.slice(-8);
+
+    if (data.station) {
+      station = data.station;
+      document.querySelectorAll("#stations button").forEach(button => {
+        button.classList.toggle("active", button.dataset.station === station);
+      });
+      $("stationLabel").textContent = station.toUpperCase();
+    }
+
+    if (data.phase) {
+      phase = data.phase;
+      document.querySelectorAll("#phases button").forEach(button => {
+        button.classList.toggle("active", button.dataset.phase === phase);
+      });
+      $("phaseStatus").textContent = phase.toUpperCase();
+      $("phaseName").textContent = phase.toUpperCase();
+      $("phaseDescription").textContent = "Updated from ATC conversation";
+    }
+
+    $("hintText").textContent = data.hint;
+    $("hintExplain").textContent = data.explanation || "Read back the controller's instruction accurately.";
+    setAtc(data.atc);
+    $("transcript").value = "";
+    $("micStatus").textContent = "ATC CONNECTED";
+  } catch (error) {
+    log("CONNECTION ERROR", error.message);
+    $("atcText").textContent = "Unable to reach AEROFLY-ATC. Check your connection and transmit again.";
+    $("micStatus").textContent = "ATC CONNECTION ERROR";
+  } finally {
+    $("send").disabled = false;
+    $("send").textContent = "Transmit";
   }
-
-  $("transcript").value = "";
 };
 
 $("clear").onclick = () => {
