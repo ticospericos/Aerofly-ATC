@@ -319,15 +319,6 @@ button:disabled { opacity:.45; }
   </div>
 </section>
 
-<section class="card">
-  <div class="eyebrow">ACTIVE CONTROLLER</div>
-  <h2 class="section-title" id="activeControllerLabel">CLEARANCE DELIVERY</h2>
-  <label for="frequency">Assigned radio frequency</label>
-  <input id="frequency" value="121.700" readonly>
-  <p class="notice">
-    Controller is detected from the station you call. Tune the assigned frequency manually in Aerofly.
-  </p>
-</section>
 
 
 
@@ -475,6 +466,8 @@ let recognition = null;
 let recognizing = false;
 const ATC_API = "https://aerofly-atc-brain.fy5794mdw9.workers.dev/atc";
 let conversationHistory = [];
+let flightState = {};
+let currentFrequency = "";
 
 function airport(code) {
   return airports.find(a => a[1] === code) || [code,code,[]];
@@ -596,11 +589,11 @@ function updateDirectory() {
 
 $("startFlight").onclick = () => {
   conversationHistory = [];
+  flightState = {};
+  currentFrequency = "";
   station = "Clearance";
   phase = "Preflight";
   $("stationLabel").textContent = "CLEARANCE";
-  $("activeControllerLabel").textContent = "CLEARANCE DELIVERY";
-  $("frequency").value = "121.700";
   $("phaseStatus").textContent = "PREFLIGHT";
   $("phaseName").textContent = "PREFLIGHT";
   $("phaseDescription").textContent = "Awaiting clearance";
@@ -658,7 +651,8 @@ $("send").onclick = async () => {
     flightRules: $("flightType").value,
     station,
     phase,
-    frequency: $("frequency").value.trim(),
+    frequency: currentFrequency,
+    flightState,
     automaticControllerSelection: true
   };
 
@@ -681,10 +675,10 @@ $("send").onclick = async () => {
     if (data.station) {
       station = data.station;
       $("stationLabel").textContent = station === "Clearance" ? "CLEARANCE" : station.toUpperCase();
-      $("activeControllerLabel").textContent = station === "Clearance" ? "CLEARANCE DELIVERY" : station.toUpperCase();
     }
 
-    if (data.frequency) $("frequency").value = data.frequency;
+    if (data.frequency) currentFrequency = data.frequency;
+    if (data.state && typeof data.state === "object") flightState = data.state;
 
     if (data.phase) {
       phase = data.phase;
