@@ -734,6 +734,9 @@ async function speak(text, options={}) {
     if (requestId !== speechRequestId) return;
     const audioUrl = URL.createObjectURL(blob);
     const audio = new Audio(audioUrl);
+    audio.playsInline = true;
+    audio.setAttribute("playsinline", "");
+    audio.preload = "auto";
     activeAudioUrl = audioUrl;
     activeNeuralAudio = audio;
     audio.onplay = () => {
