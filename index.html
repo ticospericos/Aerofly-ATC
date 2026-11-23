@@ -339,8 +339,6 @@ button:disabled { opacity:.45; }
       AEROFLY-ATC online. Select your airports and controller to begin.
     </p>
     <button id="speakAtc">▶ Play ATC Voice</button>
-    <label for="atcVoice">ATC voice · English</label>
-    <select id="atcVoice"><option value="">System default</option></select>
   </div>
 
   <label for="transcript">Your radio transmission</label>
@@ -495,19 +493,16 @@ function log(tag,text,kind="") {
   $("log").prepend(entry);
 }
 
-function loadAtcVoices() {
-  if (!("speechSynthesis" in window)) return;
-  const select = $("atcVoice");
-  const current = select.value;
+function getPreferredAtcVoice() {
+  if (!("speechSynthesis" in window)) return null;
   const voices = window.speechSynthesis.getVoices().filter(v => /^en(-|_)/i.test(v.lang));
-  select.innerHTML = "";
-  select.add(new Option("System default", ""));
-  voices.forEach(v => select.add(new Option(`${v.name} · ${v.lang}`, v.name)));
-  if ([...select.options].some(o => o.value === current)) select.value = current;
-  else if (!current) {
-    const preferred = voices.find(v => /Alex|Daniel|Aaron|Fred|Tom|Rishi|Oliver|Evan|Guy|David|Mark|James|Arthur|Microsoft.*(Guy|David|Mark)|English.*Male/i.test(v.name));
-    if (preferred) select.value = preferred.name;
-  }
+  const maleNames = /\\b(Daniel|Aaron|Alex|Fred|Tom|Rishi|Oliver|Evan|Guy|David|Mark|James|Arthur|Lee|Gordon|Nathan|Reed|Ralph)\\b|Microsoft.*(Guy|David|Mark)/i;
+  const femaleNames = /Samantha|Victoria|Karen|Moira|Tessa|Fiona|Susan|Zira|Jenny|Aria|Michelle|Ava|Allison|Joanna|Kendra|Kimberly|Salli/i;
+  return voices.find(v => /^en-US/i.test(v.lang) && maleNames.test(v.name))
+    || voices.find(v => maleNames.test(v.name) && !femaleNames.test(v.name))
+    || voices.find(v => /^en-US/i.test(v.lang))
+    || voices[0]
+    || null;
 }
 
 function speak(text) {
@@ -518,11 +513,9 @@ function speak(text) {
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = "en-US";
-  utterance.rate = 0.96;
-  utterance.pitch = 0.88;
-  const selected = $("atcVoice").value;
-  const voices = window.speechSynthesis.getVoices();
-  utterance.voice = voices.find(v => v.name === selected) || voices.find(v => /^en-US/i.test(v.lang)) || null;
+  utterance.rate = 0.94;
+  utterance.pitch = 0.82;
+  utterance.voice = getPreferredAtcVoice();
   window.speechSynthesis.speak(utterance);
 }
 
@@ -802,8 +795,6 @@ $("micButton").onclick = () => {
 $("airportSearch").addEventListener("input",updateDirectory);
 
 updateRunwayOptions();
-loadAtcVoices();
-if ("speechSynthesis" in window) window.speechSynthesis.onvoiceschanged = loadAtcVoices;
 $("stationLabel").textContent = "CLEARANCE DELIVERY";
 hint();
 updateDirectory();
