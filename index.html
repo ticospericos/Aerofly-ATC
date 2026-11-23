@@ -144,6 +144,40 @@ button.warn {
   border-color:#8b3a43;
 }
 button:disabled { opacity:.45; }
+#phases {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:8px;
+}
+#phases button {
+  min-height:48px;
+  padding:9px 6px;
+  font-size:12px;
+  border-radius:12px;
+  background:#0b1a2a;
+  border-color:#2b415a;
+}
+#phases button.active {
+  color:#07111f;
+  background:var(--green);
+  border-color:var(--green);
+  box-shadow:0 0 0 2px #55d69e33;
+}
+.phase-current {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin:10px 0 12px;
+  padding:11px 12px;
+  background:#0a1a29;
+  border:1px solid #29435e;
+  border-radius:12px;
+}
+.phase-current strong { color:var(--green); letter-spacing:.8px; }
+@media(max-width:420px) {
+  #phases { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
 .tabs {
   display:flex;
   gap:7px;
@@ -212,24 +246,6 @@ button:disabled { opacity:.45; }
   letter-spacing:1px;
   margin-bottom:3px;
 }
-.diagram {
-  background:#e9edf1;
-  color:#14202c;
-  border-radius:10px;
-  padding:16px;
-  text-align:center;
-  min-height:150px;
-  display:grid;
-  place-items:center;
-}
-.runway {
-  height:22px;
-  width:82%;
-  background:#6c7784;
-  border:2px dashed white;
-  margin:12px auto;
-  transform:rotate(-8deg);
-}
 .footer {
   text-align:center;
   color:#6f849b;
@@ -249,7 +265,7 @@ button:disabled { opacity:.45; }
   <div class="brand">
     <div>
       <h1>AEROFLY-ATC</h1>
-      <small>FLIGHT COMPANION · SIMULATION ONLY</small>
+      <small>PILOT · CONTROLLER · RADIO COMPANION</small>
     </div>
     <span class="pill">BUILD 0.3</span>
   </div>
@@ -269,7 +285,7 @@ button:disabled { opacity:.45; }
   <div class="grid">
     <div>
       <label for="callsign">Callsign</label>
-      <input id="callsign" value="November Nine Bravo Charlie">
+      <input id="callsign" value="November Niner Charlie Bravo">
     </div>
     <div>
       <label for="aircraft">Aircraft</label>
@@ -288,6 +304,14 @@ button:disabled { opacity:.45; }
     <div>
       <label for="destination">Destination airport</label>
       <select id="destination"></select>
+    </div>
+    <div>
+      <label for="departureRunway">Departure runway · Aerofly</label>
+      <select id="departureRunway"></select>
+    </div>
+    <div>
+      <label for="arrivalRunway">Arrival runway · Aerofly</label>
+      <select id="arrivalRunway"></select>
     </div>
     <div>
       <label for="flightType">Flight rules</label>
@@ -333,28 +357,7 @@ button:disabled { opacity:.45; }
   </p>
 </section>
 
-<section class="card">
-  <div class="eyebrow">AIRPORT DIAGRAM</div>
-  <h2 class="section-title" id="diagramTitle">Departure Airport</h2>
 
-  <div class="diagram">
-    <div>
-      <strong id="diagramName">Salinas Municipal · KSNS</strong>
-      <div class="runway"></div>
-      <small>ILLUSTRATIVE PLACEHOLDER · NOT TO SCALE</small>
-    </div>
-  </div>
-
-  <div class="row" style="margin-top:10px">
-    <button id="faaDiagram">FAA Airport Diagrams</button>
-    <button id="arrivalDiagram">Show Destination</button>
-  </div>
-
-  <p class="notice">
-    This is not an actual airport chart. Do not use it for real taxi navigation.
-    Use official airport diagrams for accurate taxiways and runway information.
-  </p>
-</section>
 
 <section class="card full">
   <div class="between">
@@ -387,35 +390,12 @@ button:disabled { opacity:.45; }
   <div class="hint" style="margin-top:12px">
     <strong>TRANSMISSION HINT · WHAT YOU SHOULD SAY</strong>
     <p id="hintText">
-      November Nine Bravo Charlie, request clearance.
+      November Niner Charlie Bravo, request clearance.
     </p>
     <div class="notice" id="hintExplain">
       Read back instructions carefully. Replace the example fields with your flight information.
     </div>
   </div>
-</section>
-
-<section class="card">
-  <div class="eyebrow">EMERGENCY COMMUNICATIONS</div>
-  <h2 class="section-title">Declare an Emergency</h2>
-
-  <label for="emergencyType">Emergency situation</label>
-  <select id="emergencyType">
-    <option value="engine">Engine failure</option>
-    <option value="smoke">Smoke / Fire onboard</option>
-    <option value="medical">Medical emergency</option>
-    <option value="pressurization">Cabin pressurization problem</option>
-    <option value="communications">Radio communication failure</option>
-    <option value="other">Other emergency</option>
-  </select>
-
-  <button class="warn" id="declare" style="width:100%;margin-top:10px">
-    MAYDAY / PAN-PAN
-  </button>
-
-  <p class="notice">
-    Flight simulation only. This panel does not provide real emergency procedures.
-  </p>
 </section>
 
 <section class="card">
@@ -432,6 +412,14 @@ button:disabled { opacity:.45; }
 <section class="card full">
   <div class="eyebrow">FLIGHT PHASE</div>
   <h2 class="section-title">Update Flight Phase</h2>
+
+  <div class="phase-current">
+    <div>
+      <div class="eyebrow">CURRENT FLIGHT PHASE</div>
+      <strong id="phaseName">PREFLIGHT</strong>
+    </div>
+    <span class="status" id="phaseDescription">Before departure</span>
+  </div>
 
   <div class="tabs" id="phases">
     <button class="active" data-phase="Preflight">Preflight</button>
@@ -452,7 +440,7 @@ button:disabled { opacity:.45; }
 
 <section class="card full">
   <div class="eyebrow">AIRPORT DIRECTORY</div>
-  <h2 class="section-title">California Airport Directory</h2>
+  <h2 class="section-title">Aerofly FS Airports & Runways</h2>
 
   <label for="airportSearch">Search airport or ICAO code</label>
   <input id="airportSearch" placeholder="Example: KSFO or San Francisco">
@@ -460,8 +448,7 @@ button:disabled { opacity:.45; }
   <div id="airportDirectory" class="log" style="margin-top:12px"></div>
 
   <p class="notice">
-    This is your selected airport directory, not a verified list of every airport
-    available in Aerofly FS Global.
+    Airport list and runway designations are transcribed from the pilot-provided Aerofly FS list. Runway data is not independently verified; use the runways shown in your simulator.
   </p>
 </section>
 
@@ -475,36 +462,40 @@ button:disabled { opacity:.45; }
 "use strict";
 
 const airports = [
-["Sonoma County","KSTS"],
-["Sacramento International","KSMF"],
-["Sacramento Mather","KMHR"],
-["Sacramento Executive","KSAC"],
-["Travis AFB","KSUU"],
-["Buchanan Field","KCCR"],
-["Stockton Metropolitan","KSCK"],
-["Modesto City-County","KMOD"],
-["San Francisco International","KSFO"],
-["Oakland International","KOAK"],
-["Napa County","KAPC"],
-["Petaluma Municipal","O69"],
-["Nut Tree","KVCB"],
-["Gnoss Field / Novato","KDVO"],
-["Rio Vista Municipal","O88"],
-["Lodi","1O3"],
-["Hayward Executive","KHWD"],
-["Livermore Municipal","KLVK"],
-["Tracy Municipal","KTCY"],
-["Half Moon Bay","KHAF"],
-["San Carlos","KSQL"],
-["Palo Alto","KPAO"],
-["Moffett Federal","KNUQ"],
-["San José Mineta","KSJC"],
-["Reid-Hillview","KRHV"],
-["San Martin","E16"],
-["Watsonville Municipal","KWVI"],
-["Hollister Municipal","KCVH"],
-["Salinas Municipal","KSNS"],
-["Monterey Regional","KMRY"]
+  ["Monterey Regional","KMRY",["28L","28R","01L","01R"]],
+  ["Salinas Municipal","KSNS",["31","26","08","13"]],
+  ["Hollister Municipal","KCVH",["31","24","13","06"]],
+  ["Watsonville Municipal","KWVI",["20","06","02","27"]],
+  ["San Martin Airport","KE16",["14","32"]],
+  ["Reid-Hillview","KRHV",["13L","13R","31L","31R"]],
+  ["San José Mineta International","KSJC",["30L","30R","12L","12R"]],
+  ["Modesto City-County","KMOD",["28L","28R","10L","10R"]],
+  ["Moffett Federal Airfield","KNUQ",["32L","32R","14L","14R"]],
+  ["Palo Alto","KPAO",["13","31"]],
+  ["Tracy Municipal","KTCY",["30","26","12","08"]],
+  ["Stockton Metropolitan","KSCK",["29L","29R","11L","11R"]],
+  ["Livermore Municipal","KLVK",["25L","25R","07L","07R"]],
+  ["San Carlos","KSQL",["12","30"]],
+  ["Half Moon Bay","KHAF",["12","30"]],
+  ["San Francisco International","KSFO",["01L","01R","28L","28R","10L","10R","19L","19R"]],
+  ["Hayward Executive","KHWD",["28L","28R","10L","10R"]],
+  ["Oakland International","KOAK",["30","12","28L","28R","10L","10R","33","15"]],
+  ["Byron Airport","KC83",["30","23","12","05"]],
+  ["Buchanan Field","KCCR",["01L","01R","32L","32R","19L","19R","14L","14R"]],
+  ["Lodi Airport","K1O3",["30","26","12","08"]],
+  ["Rio Vista Municipal","KO88",["33","25","07","15"]],
+  ["Gnoss Field (Novato)","KDVO",["13","31"]],
+  ["Petaluma Municipal","KO69",["11","29"]],
+  ["Napa County","KAPC",["06","01L","01R","24","19L","19R"]],
+  ["Charles M. Schulz Sonoma County","KSTS",["02","32","20","14"]],
+  ["Angwin-Parrett Field","K203",["16","34"]],
+  ["Travis Air Force Base","KSUU",["03L","03R","21R","32","21-2","21L"]],
+  ["Nut Tree","KVCB",["02","20"]],
+  ["Yolo County Airport","KDWA",["16","34"]],
+  ["University Airport","KEDU",["35","17"]],
+  ["Sacramento Executive","KSAC",["02","30","20","12"]],
+  ["Sacramento Mather","KMHR",["04L","04R","22L","22R"]],
+  ["Sacramento International","KSMF",["35L","35R","17L","17R"]]
 ];
 
 const $ = id => document.getElementById(id);
@@ -522,13 +513,31 @@ destination.value = "KSFO";
 
 let station = "Clearance";
 let phase = "Preflight";
-let diagramIsDestination = false;
 let recognition = null;
 let recognizing = false;
+const ATC_API = "https://aerofly-atc-brain.fy5794mdw9.workers.dev/atc";
+let conversationHistory = [];
 
 function airport(code) {
-  return airports.find(a => a[1] === code) || [code,code];
+  return airports.find(a => a[1] === code) || [code,code,[]];
 }
+
+function fillRunwaySelect(selectId, airportData) {
+  const select = $(selectId);
+  const previous = select.value;
+  select.innerHTML = "";
+  select.add(new Option("Select runway from Aerofly", ""));
+  (airportData[2] || []).forEach(runway => {
+    select.add(new Option("Runway " + runway, runway));
+  });
+  if ((airportData[2] || []).includes(previous)) select.value = previous;
+}
+
+function updateRunwayOptions() {
+  fillRunwaySelect("departureRunway", airport(origin.value));
+  fillRunwaySelect("arrivalRunway", airport(destination.value));
+}
+
 
 function log(tag,text,kind="") {
   const entry = document.createElement("div");
@@ -569,18 +578,20 @@ function setAtc(text) {
 function hint() {
   const o = airport(origin.value);
   const d = airport(destination.value);
-  const c = $("callsign").value.trim() || "November Nine Bravo Charlie";
+  const c = $("callsign").value.trim() || "November Niner Charlie Bravo";
   const altitude = $("altitude").value.trim() || "assigned altitude";
+  const departureRunway = $("departureRunway").value;
+  const arrivalRunway = $("arrivalRunway").value;
 
   const hints = {
     Clearance:
       `${o[1]} Clearance, ${c}, Learjet 45, ${$("flightType").value} to ${d[0]}, request clearance.`,
 
     Ground:
-      `${o[0]} Ground, ${c}, at [parking position], request taxi for departure to ${d[0]}.`,
+      `${o[0]} Ground, ${c}, at [parking position], request taxi for departure to ${d[0]}${departureRunway ? ", Runway " + departureRunway : ""}.`,
 
     Tower:
-      `${o[0]} Tower, ${c}, holding short Runway [assigned runway], ready for departure.`,
+      `${o[0]} Tower, ${c}, holding short Runway ${departureRunway || "[assigned runway]"}, ready for departure.`,
 
     Departure:
       `${o[0]} Departure, ${c}, passing [altitude], climbing to ${altitude}.`,
@@ -589,7 +600,7 @@ function hint() {
       `Center, ${c}, maintaining ${altitude}.`,
 
     Approach:
-      `${d[0]} Approach, ${c}, [position and altitude], inbound for landing.`,
+      `${d[0]} Approach, ${c}, [position and altitude], inbound for landing${arrivalRunway ? ", Runway " + arrivalRunway : ""}.`,
 
     ATIS:
       `Listen to the airport information broadcast. Note the information code and report it when contacting the controller.`,
@@ -603,18 +614,7 @@ function hint() {
   $("hintExplain").textContent =
     station === "ATIS"
     ? "ATIS is an information broadcast, not an air traffic control clearance."
-    : "Replace bracketed fields with information from your simulator. Read back runway, altitude, heading and hold-short instructions exactly.";
-}
-
-function updateDiagram() {
-  const a = airport(
-    diagramIsDestination ? destination.value : origin.value
-  );
-
-  $("diagramTitle").textContent =
-    diagramIsDestination ? "Destination Airport" : "Departure Airport";
-
-  $("diagramName").textContent = a[0] + " · " + a[1];
+    : "Runways selected here are simulator-side planning references, not automatic ATC assignments. Confirm the active runway in Aerofly/ATIS and follow the controller\u2019s actual instruction.";
 }
 
 function updateDirectory() {
@@ -635,6 +635,11 @@ function updateDirectory() {
     const name = document.createElement("strong");
     name.textContent = a[0] + " · " + a[1];
 
+    const runwayInfo = document.createElement("div");
+    runwayInfo.className = "notice";
+    runwayInfo.style.marginTop = "5px";
+    runwayInfo.textContent = "Runways: " + ((a[2] && a[2].length) ? a[2].join(" · ") : "Not provided");
+
     const actions = document.createElement("div");
     actions.className = "row";
     actions.style.marginTop = "7px";
@@ -643,8 +648,7 @@ function updateDirectory() {
     dep.textContent = "Set Departure";
     dep.onclick = () => {
       origin.value = a[1];
-      diagramIsDestination = false;
-      updateDiagram();
+      updateRunwayOptions();
       hint();
       log("AIRPORT","Departure airport set to " + a[0] + " (" + a[1] + ").");
     };
@@ -653,14 +657,13 @@ function updateDirectory() {
     arr.textContent = "Set Destination";
     arr.onclick = () => {
       destination.value = a[1];
-      diagramIsDestination = true;
-      updateDiagram();
+      updateRunwayOptions();
       hint();
       log("AIRPORT","Destination airport set to " + a[0] + " (" + a[1] + ").");
     };
 
     actions.append(dep,arr);
-    item.append(name,actions);
+    item.append(name,runwayInfo,actions);
     directory.append(item);
   });
 
@@ -684,7 +687,7 @@ $("stations").addEventListener("click",e => {
   hint();
 
   setAtc(
-    `${station} selected. ${airport(origin.value)[0]} (${origin.value}). Make your call when ready. Simulation only.`
+    `${station} selected. ${airport(origin.value)[0]} (${origin.value}). November Niner Charlie Bravo, make your call when ready.`
   );
 });
 
@@ -698,14 +701,25 @@ $("phases").addEventListener("click",e => {
     b.classList.toggle("active",b === button);
   });
 
+  const phaseDescriptions = {
+    Preflight:"Before departure",
+    Taxi:"Taxiing to the runway",
+    Takeoff:"Takeoff and initial climb",
+    Departure:"Leaving the departure area",
+    Cruise:"En route",
+    Approach:"Arriving and descending",
+    Landing:"Landing and runway vacated",
+    Emergency:"Emergency situation"
+  };
+
   $("phaseStatus").textContent = phase.toUpperCase();
+  $("phaseName").textContent = phase.toUpperCase();
+  $("phaseDescription").textContent = phaseDescriptions[phase] || "";
 
   log("FLIGHT PHASE",phase);
 });
 
 $("startFlight").onclick = () => {
-  diagramIsDestination = false;
-  updateDiagram();
 
   $("flightStatus").textContent =
     "Active · " + origin.value + " → " + destination.value;
@@ -716,7 +730,7 @@ $("startFlight").onclick = () => {
   );
 
   setAtc(
-    `AEROFLY-ATC ready. ${airport(origin.value)[0]} to ${airport(destination.value)[0]}. Select Clearance or Ground to begin. Simulation only.`
+    `${$("callsign").value.trim() || "November Niner Charlie Bravo"}, ${airport(origin.value)[0]} to ${airport(destination.value)[0]}. Clearance Delivery is available when ready to copy your clearance.`
   );
 
   hint();
@@ -727,32 +741,22 @@ $("swap").onclick = () => {
   origin.value = destination.value;
   destination.value = oldOrigin;
 
-  diagramIsDestination = false;
-  updateDiagram();
+  updateRunwayOptions();
   hint();
 };
 
 origin.onchange = () => {
-  if (!diagramIsDestination) updateDiagram();
+  updateRunwayOptions();
   hint();
 };
 
 destination.onchange = () => {
-  if (diagramIsDestination) updateDiagram();
+  updateRunwayOptions();
   hint();
 };
 
-$("arrivalDiagram").onclick = () => {
-  diagramIsDestination = !diagramIsDestination;
-  updateDiagram();
-};
-
-$("faaDiagram").onclick = () => {
-  window.open(
-    "https://www.faa.gov/airports/runway_safety/diagrams/",
-    "_blank"
-  );
-};
+$("departureRunway").onchange = hint;
+$("arrivalRunway").onchange = hint;
 
 $("callsign").oninput = hint;
 $("altitude").oninput = hint;
@@ -762,99 +766,84 @@ $("speakAtc").onclick = () => {
   speak($("atcText").textContent);
 };
 
-$("send").onclick = () => {
-  const text = $("transcript").value.trim();
-  if (!text) return;
+$("send").onclick = async () => {
+  const message = $("transcript").value.trim();
+  if (!message) return;
 
-  const callsign = $("callsign").value.trim() || "November Nine Bravo Charlie";
+  const callsign = $("callsign").value.trim() || "November Niner Charlie Bravo";
+  const from = airport(origin.value);
+  const to = airport(destination.value);
+  log("PILOT · " + callsign, message, "you");
+  $("send").disabled = true;
+  $("send").textContent = "Contacting ATC...";
+  $("micStatus").textContent = "ATC THINKING...";
 
-  log("PILOT · " + callsign,text,"you");
+  const context = {
+    callsign,
+    aircraft: $("aircraft").value,
+    origin: { name: from[0], icao: from[1], runways: from[2] },
+    destination: { name: to[0], icao: to[1], runways: to[2] },
+    flightRules: $("flightType").value,
+    requestedAltitude: $("altitude").value.trim(),
+    station,
+    phase,
+    frequency: $("frequency").value.trim()
+  };
 
-  const lower = text.toLowerCase();
+  try {
+    const response = await fetch(ATC_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message, context, history: conversationHistory.slice(-8) })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.details || data.error || "ATC service returned HTTP " + response.status);
+    if (!data.atc || !data.hint) throw new Error("ATC response was incomplete. Please transmit again.");
 
-  if (/mayday|pan-pan|engine failure|engine shut|fire|smoke|emergency/.test(lower)) {
-    setAtc(
-      `${callsign}, emergency acknowledged. Say nature of emergency, persons on board, fuel remaining and your intentions. Simulated response only.`
+    conversationHistory.push(
+      { role: "user", text: message },
+      { role: "model", text: JSON.stringify(data) }
     );
-  } else if (station === "ATIS") {
-    setAtc(
-      "Information received. Contact the appropriate simulated controller when ready. ATIS does not issue clearances."
-    );
-  } else if (station === "Clearance") {
-    setAtc(
-      `${callsign}, roger. Confirm your requested route, flight rules and requested altitude. This is a training simulation, not an actual clearance.`
-    );
-  } else if (station === "Ground") {
-    setAtc(
-      `${callsign}, roger. State your parking position and confirm you have the assigned taxi route. This simulation does not issue real taxi clearances.`
-    );
-  } else if (station === "Tower") {
-    setAtc(
-      `${callsign}, roger. Confirm runway and that you are holding short. Wait for an actual simulated takeoff clearance in your scenario.`
-    );
-  } else if (station === "Departure") {
-    setAtc(
-      `${callsign}, roger. Say your current altitude and assigned altitude.`
-    );
-  } else if (station === "Center") {
-    setAtc(
-      `${callsign}, roger. Confirm your altitude and next requested flight level.`
-    );
-  } else if (station === "Approach") {
-    setAtc(
-      `${callsign}, roger. Report your position, altitude and landing intentions.`
-    );
-  } else {
-    setAtc(
-      `${callsign}, traffic copied. Continue to monitor the appropriate frequency.`
-    );
+    conversationHistory = conversationHistory.slice(-8);
+
+    if (data.station) {
+      station = data.station;
+      document.querySelectorAll("#stations button").forEach(button => {
+        button.classList.toggle("active", button.dataset.station === station);
+      });
+      $("stationLabel").textContent = station.toUpperCase();
+    }
+
+    if (data.frequency) $("frequency").value = data.frequency;
+
+    if (data.phase) {
+      phase = data.phase;
+      document.querySelectorAll("#phases button").forEach(button => {
+        button.classList.toggle("active", button.dataset.phase === phase);
+      });
+      $("phaseStatus").textContent = phase.toUpperCase();
+      $("phaseName").textContent = phase.toUpperCase();
+      $("phaseDescription").textContent = "Updated from ATC conversation";
+    }
+
+    $("hintText").textContent = data.hint;
+    $("hintExplain").textContent = data.explanation || "Read back the controller's instruction accurately.";
+    setAtc(data.atc);
+    $("transcript").value = "";
+    $("micStatus").textContent = data.engine === "AEROFLY ATC CORE" ? "ATC · CORE BACKUP" : "ATC · GEMINI";
+    if (data.fallbackReason) log("BACKUP ENGINE", "Gemini unavailable; AEROFLY ATC CORE took over. " + data.fallbackReason);
+  } catch (error) {
+    log("CONNECTION ERROR", error.message);
+    $("atcText").textContent = "Unable to reach AEROFLY-ATC. Check your connection and transmit again.";
+    $("micStatus").textContent = "ATC CONNECTION ERROR";
+  } finally {
+    $("send").disabled = false;
+    $("send").textContent = "Transmit";
   }
-
-  $("transcript").value = "";
 };
 
 $("clear").onclick = () => {
   $("transcript").value = "";
-};
-
-$("declare").onclick = () => {
-  const c = $("callsign").value.trim() || "November Nine Bravo Charlie";
-  const type = $("emergencyType").value;
-
-  const calls = {
-    engine:
-      `Mayday, Mayday, Mayday. [Controller], ${c}, Learjet 45, engine failure. Request priority handling and assistance.`,
-
-    smoke:
-      `Mayday, Mayday, Mayday. [Controller], ${c}, Learjet 45, smoke reported onboard. Request priority handling.`,
-
-    medical:
-      `Pan-Pan, Pan-Pan, Pan-Pan. [Controller], ${c}, medical emergency onboard. Request priority handling.`,
-
-    pressurization:
-      `Mayday, Mayday, Mayday. [Controller], ${c}, cabin pressurization problem. Request priority handling.`,
-
-    communications:
-      `Radio communication failure. Use only the appropriate procedure for your flight simulation scenario.`,
-
-    other:
-      `Mayday, Mayday, Mayday. [Controller], ${c}, emergency situation. Request priority handling.`
-  };
-
-  phase = "Emergency";
-  $("phaseStatus").textContent = "EMERGENCY";
-
-  document.querySelectorAll("#phases button").forEach(b => {
-    b.classList.toggle("active",b.dataset.phase === "Emergency");
-  });
-
-  $("transcript").value = calls[type];
-
-  $("hintText").textContent = calls[type];
-  $("hintExplain").textContent =
-    "This is a suggested simulation radio call. Adapt it to your scenario.";
-
-  log("EMERGENCY HINT",calls[type],"you emergency");
 };
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -924,8 +913,8 @@ $("micButton").onclick = () => {
 
 $("airportSearch").addEventListener("input",updateDirectory);
 
+updateRunwayOptions();
 hint();
-updateDiagram();
 updateDirectory();
 
 </script>
