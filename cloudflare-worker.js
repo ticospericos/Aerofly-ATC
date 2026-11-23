@@ -15,9 +15,9 @@ function stateFrom(history,c){if(c.flightState)return c.flightState;for(var i=(h
 function core(message,c,history){
  var msg=String(message||"").toLowerCase(),from=c.origin||{},to=c.destination||{},dep=apt(from.icao),arr=apt(to.icao);
  var cs=clean(c.callsign||"November Niner Charlie Bravo",80),ac=clean(c.aircraft||"Learjet 45",50),s=stateFrom(history,c);
- var emergency=/\\b(mayday|pan.?pan|engine fail|engine out|fire|smoke|medical|bird strike|emergency)\\b/i.test(message);
+ var emergency=/\b(mayday|pan.?pan|engine fail|engine out|fire|smoke|medical|bird strike|emergency)\b/i.test(message);
  var called="";
- var calls=[["Clearance",/\\b(clearance delivery|clearance)\\b/i],["Ground",/\\bground\\b/i],["Tower",/\\btower\\b/i],["Departure",/\\bdeparture\\b/i],["Center",/\\b(center)\\b/i],["Approach",/\\b(approach)\\b/i],["ATIS",/\\b(atis|information)\\b/i],["Unicom",/\\b(unicom|traffic)\\b/i]];
+ var calls=[["Clearance",/\b(clearance delivery|clearance)\b/i],["Ground",/\bground\b/i],["Tower",/\btower\b/i],["Departure",/\bdeparture\b/i],["Center",/\b(center)\b/i],["Approach",/\b(approach)\b/i],["ATIS",/\b(atis|information)\b/i],["Unicom",/\b(unicom|traffic)\b/i]];
  for(var ci=0;ci<calls.length;ci++){if(calls[ci][1].test(msg)){called=calls[ci][0];break;}}
  var first=!s.assignedDepartureRunway;
  if(first){s.simWind=270;s.assignedDepartureRunway=runway(dep[2],s.simWind);s.assignedArrivalRunway=runway(arr[2],s.simWind);s.initialAltitude=c.flightRules==="VFR"?"5,500 feet":"5,000 feet";s.squawk=String(1000+Math.floor(Math.random()*7000));s.stage="Clearance";}
