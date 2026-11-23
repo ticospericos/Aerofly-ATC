@@ -248,7 +248,7 @@ function core(message,c,history){
   var altitudeMatch=spokenDigits(msg).match(/\b(?:request altitude|request climb to|request descent to|climb to|descend to|maintain)\s*(\d{4,6})\s*(?:feet|ft)?\b|\bflight level\s*(\d{2,3})\b/i);
   var directMatch=msg.match(/\b(?:request direct to|direct to|proceed direct to|request direct|proceed direct)\s+(?:waypoint\s+)?([a-z0-9]{2,8})\b/i);
   var passedMatch=msg.match(/\b(?:over|abeam|passed)\s+(?:waypoint\s+)?([a-z0-9]{2,8})\b/i);
-  var diversionMatch=msg.match(/\b(?:request diversion to|divert(?:ing)? to|alternate(?: airport)?\s+)([a-z0-9]{3,4})\b/i);
+  var diversionMatch=msg.match(/\b(?:divert to|diverting to|request diversion to|alternate airport|alternate)\s+([a-z0-9]{3,4})\b/i);
   if(altitudeMatch){
    var requestedAltitude=Number(altitudeMatch[1]||altitudeMatch[2]);
    if(altitudeMatch[2])requestedAltitude*=100;
