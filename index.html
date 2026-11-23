@@ -464,6 +464,7 @@ let station = "Clearance";
 let phase = "Preflight";
 let recognition = null;
 let recognizing = false;
+let recognitionBaseText = "";
 const ATC_API = "https://aerofly-atc-brain.fy5794mdw9.workers.dev/atc";
 let conversationHistory = [];
 let flightState = {};
@@ -746,6 +747,7 @@ $("micButton").onclick = () => {
 
   try {
     recognition = new SR();
+    recognitionBaseText = $("transcript").value.trim();
     recognition.lang = "en-US";
     recognition.continuous = false;
     recognition.interimResults = true;
@@ -756,14 +758,24 @@ $("micButton").onclick = () => {
       $("micButton").textContent = "■ Stop Microphone";
     };
 
+    recognition.maxAlternatives = 3;
     recognition.onresult = event => {
-      let result = "";
+      let finalText = "";
+      let interimText = "";
 
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        result += event.results[i][0].transcript;
+      for (let i = 0; i < event.results.length; i++) {
+        const spoken = event.results[i][0].transcript.trim();
+        if (!spoken) continue;
+        if (event.results[i].isFinal) finalText += (finalText ? " " : "") + spoken;
+        else interimText += (interimText ? " " : "") + spoken;
       }
 
-      $("transcript").value = result;
+      const recognizedText = [recognitionBaseText, finalText, interimText].filter(Boolean).join(" ").trim();
+      $("transcript").value = recognizedText;
+    };
+
+    recognition.onnomatch = () => {
+      $("micStatus").textContent = "NO SPEECH RECOGNIZED · TRY AGAIN";
     };
 
     recognition.onerror = event => {
@@ -780,7 +792,7 @@ $("micButton").onclick = () => {
       $("micButton").textContent = "🎙 Start Microphone";
 
       if ($("micStatus").textContent === "LISTENING...") {
-        $("micStatus").textContent = "MIC READY";
+        $("micStatus").textContent = $("transcript").value.trim() ? "TRANSCRIPTION READY · REVIEW BEFORE TRANSMIT" : "MIC READY";
       }
     };
 
