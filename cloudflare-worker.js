@@ -112,7 +112,7 @@ function core(message,c,history){
  var station=called||(first?"Clearance":clean(c.station||s.lastStation||"Clearance",24));
  var phase=clean(c.phase||s.phase||"Preflight",24),frequency="",atc="",hint="",explanation="";
  if(emergency){
-  var radioFailure=/\\b(lost comms|radio failure|unable to communicate)\\b/i.test(message);
+  var radioFailure=/(lost comms|radio failure|unable to communicate)/i.test(message);
   var emergencySquawk=radioFailure?"7600":"7700";
   s.squawk=emergencySquawk;
   station=called&&called!=="ATIS"?called:"Tower";phase="Emergency";frequency="121.500";
