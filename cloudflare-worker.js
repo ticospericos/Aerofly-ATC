@@ -38,7 +38,9 @@ function core(message,c,history){
  var called="";
  var calls=[["Clearance",/\b(clearance delivery|clearance)\b/i],["Ground",/\bground\b/i],["Tower",/\btower\b/i],["Departure",/\bdeparture\b/i],["Center",/\b(center)\b/i],["Approach",/\bapproach\b/i],["ATIS",/\b(atis|information)\b/i],["Unicom",/\b(unicom|traffic)\b/i]];
  for(var ci=0;ci<calls.length;ci++){if(calls[ci][1].test(msg)){called=calls[ci][0];break;}}
- var stage=s.stage||"Preflight";\n s.flightId=clean(c.flightId||s.flightId,100);\n s.stateVersion=2;
+ var stage=s.stage||"Preflight";
+ s.flightId=clean(c.flightId||s.flightId,100);
+ s.stateVersion=2;
  if(!called){
   if(stage==="ClearedToTaxi"&&/\b(ready to taxi|request taxi|taxi clearance|taxi)\b/i.test(msg))called="Ground";
   else if((stage==="Taxi"||stage==="HoldingShort")&&/\b(ready for departure|ready for takeoff|request takeoff|ready for take.?off)\b/i.test(msg))called="Tower";
