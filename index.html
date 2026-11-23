@@ -1093,8 +1093,16 @@ function normalizeAviationTranscript(text) {
     || /center|approach/i.test(station);
   const commonCorrections = [
     [/\bholding (?:sure|shirt|shorts)\b/gi, "holding short"],
+    [/\bhold short(?:s)?\b/gi, "hold short"],
     [/\bcleared for take off\b/gi, "cleared for takeoff"],
-    [/\bclear for take off\b/gi, "cleared for takeoff"]
+    [/\bclear for take off\b/gi, "cleared for takeoff"],
+    [/\bclear to land\b/gi, "cleared to land"],
+    [/\bcleared land\b/gi, "cleared to land"],
+    [/\bline up an wait\b/gi, "line up and wait"],
+    [/\bline up in wait\b/gi, "line up and wait"],
+    [/\bready for the parture\b/gi, "ready for departure"],
+    [/\brequest taxi clearance\b/gi, "request taxi"],
+    [/\bgo around\b/gi, "go-around"]
   ];
   const descentCorrections = [
     [/\bready to send\b/gi, "ready to descend"],
@@ -1171,9 +1179,17 @@ function startRecognitionSession() {
           const candidate = result[j];
           const a = (candidate.transcript || "").toLowerCase();
           const b = (best.transcript || "").toLowerCase();
-          const aviationTerms = /\b(runway|cleared|squawk|altitude|heading|climb|descend|taxi|holding short|final|approach|tower|ground|departure|center|mayday|pan pan)\b/g;
-          const score = value => (value.match(aviationTerms) || []).length * 5 + Math.min(value.length,120) / 30;
-          if (score(a) > score(b) || (score(a) === score(b) && (candidate.confidence || 0) > (best.confidence || 0))) best = candidate;
+          const aviationTerms = /\b(runway|cleared|squawk|altitude|heading|climb|descend|taxi|holding short|final|approach|tower|ground|departure|center|mayday|pan pan|localizer|glideslope|traffic|frequency|readback|pushback|parked)\b/g;
+          const stationTerms = {Clearance:/\b(clearance|cleared|squawk|runway|altitude)\b/g,Ground:/\b(ground|taxi|pushback|hold short|parking)\b/g,Tower:/\b(tower|takeoff|line up|hold short|landing|runway)\b/g,Departure:/\b(departure|airborne|climb|heading|altitude)\b/g,Center:/\b(center|cruise|flight level|waypoint|direct|altitude)\b/g,Approach:/\b(approach|localizer|glideslope|final|descend|landing)\b/g};
+          const score = (value,confidence) => {
+            const generic=(value.match(aviationTerms)||[]).length*4;
+            const expected=stationTerms[station]?(value.match(stationTerms[station])||[]).length*7:0;
+            const phaseBoost=(phase==="Approach"&&/\b(localizer|glideslope|final|descend)\b/.test(value))?8:0;
+            const readbackBoost=/\b(readback|squawk|runway|altitude|cleared)\b/.test(value)?5:0;
+            const noisePenalty=value.length>150?4:0;
+            return generic+expected+phaseBoost+readbackBoost+Math.min(value.length,120)/60+(Number(confidence)||0)*3-noisePenalty;
+          };
+          if (score(a,candidate.confidence) > score(b,best.confidence)) best = candidate;
         }
         const phrase = (best.transcript || "").trim();
         if (!phrase) continue;
