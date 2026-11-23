@@ -526,7 +526,10 @@ function speak(text, options={}) {
     return;
   }
   const synth = window.speechSynthesis;
-  if (options.interrupt !== false) synth.cancel();
+  if (options.interrupt !== false) {
+    atcSpeaking = false;
+    synth.cancel();
+  }
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = "en-US";
   utterance.rate = options.traffic ? 0.91 : 0.95;
