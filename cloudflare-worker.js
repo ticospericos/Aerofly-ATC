@@ -61,6 +61,7 @@ function buildOperationalMemory(s,message,station,phase,atc){
 }
 function advanceSimulatedTraffic(s){var fleet=Array.isArray(s.simulatedTrafficFleet)?s.simulatedTrafficFleet:[];if(!fleet.length)return {active:false,simulated:true,conflict:false,traffic:[]};var tick=(Number(s.trafficSimulationTick)||0)+1;s.trafficSimulationTick=tick;var positions=["left downwind","base leg","five-mile final","two-mile final","landing","vacated runway","taxiing clear"];fleet.forEach(function(t,i){if(!t||t.manualPosition===true)return;t.position=positions[(tick+(Number(t.phaseOffset)||i*2))%positions.length];t.simulated=true;});var conflict=fleet.some(function(t){return t&&t.runway===s.assignedDepartureRunway&&/final|base|holding short|departing|landing/i.test(String(t.position||""));});return {active:true,simulated:true,conflict:conflict,tick:tick,traffic:fleet.map(function(t){return {callsign:t.callsign,aircraft:t.aircraft,position:t.position,runway:t.runway,simulated:true};})};}
 function buildFlightMonitor(s,station,phase){var r=s.flightRecorder||{},traffic=s.trafficSeparation||{conflict:false,traffic:[]},alerts=[];if(s.readbackPending)alerts.push({level:"WARNING",code:"READBACK_PENDING",message:"Clearance readback still requires correction or completion."});if(s.stage==="Emergency")alerts.push({level:"CRITICAL",code:"EMERGENCY_DECLARED",message:"Simulated emergency state active; follow simulator scenario only."});if(traffic.conflict)alerts.push({level:"WARNING",code:"SIMULATED_TRAFFIC_CONFLICT",message:"Simulated traffic may affect runway availability."});if(s.stage==="Approach"&&s.approachVectorStage==="Final"&&!s.stableApproachReported)alerts.push({level:"INFO",code:"STABILIZATION_UNCONFIRMED",message:"Pilot has not reported a stable approach; no aircraft telemetry is available."});return {version:1,phase:phase,stage:s.stage||"Preflight",controller:station,frequency:s.frequency||"",runway:{departure:s.assignedDepartureRunway||"",arrival:s.assignedArrivalRunway||""},altitude:{initial:s.initialAltitude||"",assigned:s.assignedCruiseAltitude||s.approachAltitude||""},squawk:s.squawk||"",readback:{pending:!!s.readbackPending,verified:!!s.clearanceReadbackVerified,last:s.lastReadback||null},approach:s.operationalMemory&&s.operationalMemory.approach||{},traffic:{simulated:true,conflict:!!traffic.conflict,count:(traffic.traffic||[]).length},recorder:{transmissions:Number(r.transmissions)||0,readbackErrors:Number(r.readbackErrors)||0,phaseChanges:Number(r.phaseChanges)||0},telemetry:"NOT_CONNECTED",alerts:alerts,diagnostics:{status:alerts.some(function(a){return a.level==="CRITICAL";})?"ATTENTION":alerts.some(function(a){return a.level==="WARNING";})?"CHECK":"NOMINAL",items:alerts}};}
+function simulatedArrivalConflict(s){var fleet=Array.isArray(s.simulatedTrafficFleet)?s.simulatedTrafficFleet:[];return fleet.find(function(t){return t&&t.runway===s.assignedArrivalRunway&&/final|base|landing|holding short/i.test(String(t.position||""));})||null;}
 function stateFrom(history,c){if(c.flightState&&typeof c.flightState==="object"&&Object.keys(c.flightState).length)return c.flightState;for(var i=(history||[]).length-1;i>=0;i--){if(history[i].role==="model"){try{var x=JSON.parse(history[i].text);if(x.state)return x.state;}catch(e){}}}return {};}
 function aircraftProfile(name,rules){
  var key=String(name||"").toLowerCase(),vfr=String(rules||"IFR").toUpperCase()==="VFR";
@@ -271,10 +272,18 @@ function core(message,c,history){
    hint=cs+", continuing rollout, will contact Ground when clear, "+cs+".";
    explanation="Continúa la carrera de aterrizaje y libera la pista cuando sea seguro.";
   } else if(s.stage==="Approach"&&s.approachVectorStage==="Final"&&/\b(established on final|on final|final approach|runway in sight|visual approach)\b/i.test(msg)){
-   phase="Landing";s.stage="Landing";
-   atc=cs+", runway "+ar+", cleared to land. Wind "+((s.weather&&s.weather.wind)||"variable")+". After landing, vacate when able and contact Ground on 121.900."+trafficAdvisory(s);
-   hint=cs+", cleared to land runway "+ar+", "+cs+".";
-   explanation="Autorización de aterrizaje simulada. Después de liberar la pista, contacta Ground.";
+   var arrivalTraffic=simulatedArrivalConflict(s);
+   if(arrivalTraffic){
+    phase="Approach";s.stage="Approach";s.landingHoldIssued=true;
+    atc=cs+", continue approach runway "+ar+", number two. Simulated traffic "+arrivalTraffic.callsign+" is ahead on "+String(arrivalTraffic.position||"final")+". Landing clearance not issued. Report final again when traffic is clear.";
+    hint=cs+", continuing approach runway "+ar+", number two behind traffic, "+cs+".";
+    explanation="Secuenciación y separación de llegadas simuladas. No hay radar real ni distancias calculadas.";
+   }else{
+    phase="Landing";s.stage="Landing";s.landingClearancePending=true;s.landingClearanceRunway=ar;
+    atc=cs+", runway "+ar+", cleared to land. Wind "+((s.weather&&s.weather.wind)||"variable")+". After landing, vacate when able and contact Ground on 121.900."+trafficAdvisory(s);
+    hint=cs+", cleared to land runway "+ar+", "+cs+".";
+    explanation="Autorización de aterrizaje simulada. Después de liberar la pista, contacta Ground.";
+   }
   } else if(s.stage==="Landing"&&/\b(cleared to land|landing clearance)\b/i.test(msg)){
    phase="Landing";s.stage="Landing";
    atc=cs+", readback correct. Continue approach runway "+ar+". After landing, vacate when able and contact Ground on 121.900.";
