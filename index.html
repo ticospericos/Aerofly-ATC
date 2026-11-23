@@ -272,6 +272,14 @@ button:disabled { opacity:.45; }
       <select id="destination"></select>
     </div>
     <div>
+      <label for="departureRunway">Departure runway · Aerofly</label>
+      <select id="departureRunway"></select>
+    </div>
+    <div>
+      <label for="arrivalRunway">Arrival runway · Aerofly</label>
+      <select id="arrivalRunway"></select>
+    </div>
+    <div>
       <label for="flightType">Flight rules</label>
       <select id="flightType">
         <option>IFR</option>
@@ -490,8 +498,25 @@ let recognition = null;
 let recognizing = false;
 
 function airport(code) {
-  return airports.find(a => a[1] === code) || [code,code];
+  return airports.find(a => a[1] === code) || [code,code,[]];
 }
+
+function fillRunwaySelect(selectId, airportData) {
+  const select = $(selectId);
+  const previous = select.value;
+  select.innerHTML = "";
+  select.add(new Option("Select runway from Aerofly", ""));
+  (airportData[2] || []).forEach(runway => {
+    select.add(new Option("Runway " + runway, runway));
+  });
+  if ((airportData[2] || []).includes(previous)) select.value = previous;
+}
+
+function updateRunwayOptions() {
+  fillRunwaySelect("departureRunway", airport(origin.value));
+  fillRunwaySelect("arrivalRunway", airport(destination.value));
+}
+
 
 function log(tag,text,kind="") {
   const entry = document.createElement("div");
@@ -534,16 +559,18 @@ function hint() {
   const d = airport(destination.value);
   const c = $("callsign").value.trim() || "November Niner Charlie Bravo";
   const altitude = $("altitude").value.trim() || "assigned altitude";
+  const departureRunway = $("departureRunway").value;
+  const arrivalRunway = $("arrivalRunway").value;
 
   const hints = {
     Clearance:
       `${o[1]} Clearance, ${c}, Learjet 45, ${$("flightType").value} to ${d[0]}, request clearance.`,
 
     Ground:
-      `${o[0]} Ground, ${c}, at [parking position], request taxi for departure to ${d[0]}.`,
+      `${o[0]} Ground, ${c}, at [parking position], request taxi for departure to ${d[0]}${departureRunway ? ", Runway " + departureRunway : ""}.`,
 
     Tower:
-      `${o[0]} Tower, ${c}, holding short Runway [assigned runway], ready for departure.`,
+      `${o[0]} Tower, ${c}, holding short Runway ${departureRunway || "[assigned runway]"}, ready for departure.`,
 
     Departure:
       `${o[0]} Departure, ${c}, passing [altitude], climbing to ${altitude}.`,
@@ -552,7 +579,7 @@ function hint() {
       `Center, ${c}, maintaining ${altitude}.`,
 
     Approach:
-      `${d[0]} Approach, ${c}, [position and altitude], inbound for landing.`,
+      `${d[0]} Approach, ${c}, [position and altitude], inbound for landing${arrivalRunway ? ", Runway " + arrivalRunway : ""}.`,
 
     ATIS:
       `Listen to the airport information broadcast. Note the information code and report it when contacting the controller.`,
@@ -566,7 +593,7 @@ function hint() {
   $("hintExplain").textContent =
     station === "ATIS"
     ? "ATIS is an information broadcast, not an air traffic control clearance."
-    : "Replace bracketed fields with information from your simulator. Read back runway, altitude, heading and hold-short instructions exactly.";
+    : "Runways selected here are simulator-side planning references, not automatic ATC assignments. Confirm the active runway in Aerofly/ATIS and follow the controller\u2019s actual instruction.";
 }
 
 function updateDirectory() {
@@ -600,6 +627,7 @@ function updateDirectory() {
     dep.textContent = "Set Departure";
     dep.onclick = () => {
       origin.value = a[1];
+      updateRunwayOptions();
       hint();
       log("AIRPORT","Departure airport set to " + a[0] + " (" + a[1] + ").");
     };
@@ -608,6 +636,7 @@ function updateDirectory() {
     arr.textContent = "Set Destination";
     arr.onclick = () => {
       destination.value = a[1];
+      updateRunwayOptions();
       hint();
       log("AIRPORT","Destination airport set to " + a[0] + " (" + a[1] + ").");
     };
@@ -678,16 +707,22 @@ $("swap").onclick = () => {
   origin.value = destination.value;
   destination.value = oldOrigin;
 
+  updateRunwayOptions();
   hint();
 };
 
 origin.onchange = () => {
+  updateRunwayOptions();
   hint();
 };
 
 destination.onchange = () => {
+  updateRunwayOptions();
   hint();
 };
+
+$("departureRunway").onchange = hint;
+$("arrivalRunway").onchange = hint;
 
 $("callsign").oninput = hint;
 $("altitude").oninput = hint;
@@ -859,6 +894,7 @@ $("micButton").onclick = () => {
 
 $("airportSearch").addEventListener("input",updateDirectory);
 
+updateRunwayOptions();
 hint();
 updateDirectory();
 
