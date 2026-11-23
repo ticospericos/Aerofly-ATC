@@ -59,10 +59,17 @@ function core(message,c,history){
   frequency="126.000";atc=atisApt[0]+" information "+s.atis.information+". Wind "+s.atis.wind+". Visibility "+s.atis.visibility+". Few clouds. Runway "+atisRunway+" in use. Advise you have information "+s.atis.information+". Simulated ATIS.";
   hint="Information "+s.atis.information+" received, "+cs+".";explanation="ATIS ficticio para "+atisApt[0]+", no sincronizado con el clima de Aerofly.";
  } else if(station==="Clearance"){
-  phase="Preflight";frequency="121.700";s.stage="ClearedToTaxi";
-  atc=cs+", cleared to "+arr[0]+" airport, "+(c.flightRules||"IFR")+" departure. Runway "+dr+". Initial altitude "+s.initialAltitude+". Expect further clearance after departure. Squawk "+s.squawk+". Advise when ready to taxi.";
-  hint=cs+", cleared to "+arr[0]+", runway "+dr+", initial altitude "+s.initialAltitude+", squawk "+s.squawk+". Ready to taxi.";
-  explanation="Lee de vuelta destino, pista, altitud inicial y código transponder.";
+  phase="Preflight";frequency="121.700";
+  if(s.stage==="ClearedToTaxi"&&!/\b(repeat|say again|say that again|readback incorrect|unable to copy)\b/i.test(msg)){
+   atc=cs+", readback received. Contact Ground on 121.900 when ready to taxi.";
+   hint=cs+", readback received, contacting Ground when ready to taxi.";
+   explanation="La lectura de vuelta fue recibida. Cuando estés listo para iniciar el rodaje, llama a Ground.";
+  } else {
+   s.stage="ClearedToTaxi";
+   atc=cs+", cleared to "+arr[0]+" airport, "+(c.flightRules||"IFR")+" departure. Runway "+dr+". Initial altitude "+s.initialAltitude+". Expect further clearance after departure. Squawk "+s.squawk+". Advise when ready to taxi.";
+   hint=cs+", cleared to "+arr[0]+", runway "+dr+", initial altitude "+s.initialAltitude+", squawk "+s.squawk+". Ready to taxi.";
+   explanation="Lee de vuelta destino, pista, altitud inicial y código transponder.";
+  }
  } else if(station==="Ground"){
   frequency="121.900";
   if(s.stage==="Parked"||/\b(parked|at parking|at the gate|shut down|shutdown)\b/i.test(msg)){
