@@ -134,7 +134,21 @@ function core(message,c,history){
 export default {async fetch(request,env){
  var url=new URL(request.url),origin=request.headers.get("Origin")||"";
  if(request.method==="OPTIONS")return new Response(null,{headers:headers()});
- if(request.method==="GET"&&url.pathname==="/health")return out({ok:true,service:"AEROFLY-ATC Brain",engine:"AEROFLY ATC CORE",mode:"CORE ONLY"});
+ if(request.method==="GET"&&url.pathname==="/health")return out({ok:true,service:"AEROFLY-ATC Brain",engine:"AEROFLY ATC CORE",mode:"CORE ONLY",neuralVoice:"Grok TTS via Workers AI binding"});
+ if(request.method==="POST"&&url.pathname==="/tts"){
+  if(origin&&origin!==ALLOWED_ORIGIN)return out({error:"Origin not allowed"},403);
+  try{
+   if(!env.AI||typeof env.AI.run!=="function")return out({error:"Neural voice is not configured. Add the Workers AI binding named AI."},503);
+   var ttsBody=await request.json(),ttsText=clean(ttsBody.text,1800);
+   if(!ttsText)return out({error:"Text is required"},400);
+   var generated=await env.AI.run("xai/grok-tts",{text:ttsText,voice_id:"leo",language:"en",output_format:{codec:"mp3",sample_rate:24000,bit_rate:128000}});
+   var audioUrl=generated&&((generated.audio)||(generated.result&&generated.result.audio));
+   if(!audioUrl)return out({error:"Neural voice returned no audio"},502);
+   var audioResponse=await fetch(audioUrl);
+   if(!audioResponse.ok)return out({error:"Neural audio could not be retrieved"},502);
+   return new Response(await audioResponse.arrayBuffer(),{status:200,headers:{...headers(),"Content-Type":audioResponse.headers.get("Content-Type")||"audio/mpeg","Cache-Control":"no-store"}});
+  }catch(ttsError){return out({error:"Neural voice request failed",details:clean(ttsError&&ttsError.message,180)},502);}
+ }
  if(request.method!=="POST"||url.pathname!=="/atc")return out({error:"Use POST /atc or GET /health"},404);
  if(origin&&origin!==ALLOWED_ORIGIN)return out({error:"Origin not allowed"},403);
  try{var body=await request.json(),message=clean(body.message,3000),context=body.context||{},history=Array.isArray(body.history)?body.history.slice(-8):[];if(!message)return out({error:"Message is required"},400);
