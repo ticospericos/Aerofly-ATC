@@ -27,6 +27,7 @@ function core(message,c,history){
   else if(stage==="Cruise"&&/\b(request descent|ready to descend|descending|inbound|request approach|approach)\b/i.test(msg))called="Approach";
   else if(stage==="Approach"&&/\b(established on final|on final|final approach|visual|runway in sight)\b/i.test(msg))called="Tower";
   else if(stage==="Landing"&&/\b(vacated|clear of runway|runway clear|off the runway)\b/i.test(msg))called="Ground";
+  else if(stage==="TaxiIn"&&/\b(parked|at parking|at the gate|shut down|shutdown)\b/i.test(msg))called="Ground";
  }
  var first=!s.assignedDepartureRunway;
  if(first){
@@ -63,10 +64,21 @@ function core(message,c,history){
   explanation="Lee de vuelta destino, pista, altitud inicial y código transponder.";
  } else if(station==="Ground"){
   frequency="121.900";
-  if(s.stage==="Landing"||s.stage==="Parked"||/\b(vacated|clear of runway|runway clear|off the runway)\b/i.test(msg)){
-   phase="Taxi In";s.stage="Parked";
+  if(s.stage==="Parked"||/\b(parked|at parking|at the gate|shut down|shutdown)\b/i.test(msg)){
+   phase="Parked";s.stage="Parked";
+   atc=cs+", parking acknowledged. Frequency change approved. Good day.";
+   hint=cs+", parking completed, frequency change approved.";
+   explanation="Vuelo finalizado. El controlador confirma que ya estás estacionado.";
+  } else if(s.stage==="Landing"||/\b(vacated|clear of runway|runway clear|off the runway)\b/i.test(msg)){
+   phase="Taxi In";s.stage="TaxiIn";
    atc=cs+", roger, runway vacated. Taxi to parking via the taxiways and markings shown in your simulator. Monitor Ground on 121.900.";
-   hint=cs+", taxi to parking, "+cs+".";explanation="Después de liberar la pista, sigue las calles señalizadas en Aerofly hasta el estacionamiento.";
+   hint=cs+", taxi to parking, "+cs+".";
+   explanation="Después de liberar la pista, sigue las calles señalizadas en Aerofly hasta el estacionamiento.";
+  } else if(s.stage==="TaxiIn"){
+   phase="Taxi In";s.stage="TaxiIn";
+   atc=cs+", continue taxi to parking via the taxiways and markings shown in your simulator. Advise when parked.";
+   hint=cs+", continuing to parking, will advise when parked, "+cs+".";
+   explanation="Continúa hasta tu posición de estacionamiento y avisa cuando estés detenido.";
   } else if(s.stage==="HoldingShort"||/\b(holding short|at the hold short|short of runway|at the runway)\b/i.test(msg)){
    phase="Holding Short";s.stage="HoldingShort";
    atc=cs+", roger, holding short runway "+dr+". Contact Tower on 118.300 when ready for departure.";
@@ -85,14 +97,26 @@ function core(message,c,history){
   }
  } else if(station==="Tower"){
   frequency="118.300";
-  if(s.stage==="Approach"||/\b(established on final|on final|final approach|runway in sight|visual approach)\b/i.test(msg)){
+  if(/\b(go.?around|going around|missed approach)\b/i.test(msg)){
+   phase="Go-Around";s.stage="Departure";
+   atc=cs+", roger, go-around. Fly runway heading, climb and maintain 3,000 feet. Contact Departure on 124.600.";
+   hint=cs+", going around, runway heading, climbing to 3,000 feet, contact Departure 124.600, "+cs+".";
+   explanation="Procedimiento simulado de aproximación frustrada. Mantén rumbo de pista y contacta Departure.";
+  } else if(s.stage==="Landing"&&/\b(landed|touchdown|on the runway|rolling out)\b/i.test(msg)){
+   phase="Landing";s.stage="Landing";
+   atc=cs+", roger, continue to taxi clear of the runway when able. Contact Ground on 121.900 when clear.";
+   hint=cs+", continuing rollout, will contact Ground when clear, "+cs+".";
+   explanation="Continúa la carrera de aterrizaje y libera la pista cuando sea seguro.";
+  } else if(s.stage==="Approach"||/\b(established on final|on final|final approach|runway in sight|visual approach)\b/i.test(msg)){
    phase="Landing";s.stage="Landing";
    atc=cs+", runway "+ar+", cleared to land. Wind calm. After landing, vacate when able and contact Ground on 121.900.";
-   hint=cs+", cleared to land runway "+ar+", "+cs+".";explanation="Autorización de aterrizaje simulada. Después de liberar la pista, contacta Ground.";
+   hint=cs+", cleared to land runway "+ar+", "+cs+".";
+   explanation="Autorización de aterrizaje simulada. Después de liberar la pista, contacta Ground.";
   } else if(/\b(vacated|clear of runway|runway clear|off the runway)\b/i.test(msg)){
-   station="Ground";frequency="121.900";phase="Taxi In";s.stage="Parked";
+   station="Ground";frequency="121.900";phase="Taxi In";s.stage="TaxiIn";
    atc=cs+", roger, runway vacated. Taxi to parking via the taxiways and markings shown in your simulator. Monitor Ground on 121.900.";
-   hint=cs+", taxi to parking, "+cs+".";explanation="Sigue las calles señalizadas en Aerofly hasta el estacionamiento.";
+   hint=cs+", taxi to parking, "+cs+".";
+   explanation="Sigue las calles señalizadas en Aerofly hasta el estacionamiento.";
   } else {
    phase="Takeoff";s.stage="Takeoff";
    atc=cs+", runway "+dr+", cleared for takeoff. Wind 270 at 6 knots. After departure contact Departure on 124.600.";
