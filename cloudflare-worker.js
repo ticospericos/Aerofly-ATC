@@ -45,7 +45,7 @@ function core(message,c,history){
  var phase=clean(c.phase||s.phase||"Preflight",24),frequency="",atc="",hint="",explanation="";
  if(emergency){
   station=called&&called!=="ATIS"?called:"Tower";phase="Emergency";frequency="121.500";
-  atc=cs+", emergency acknowledged. State the nature of the emergency, your intentions, persons on board and fuel endurance. Maintain present heading and altitude if able.";
+  atc=cs+", emergency acknowledged. Squawk 7700 if able. State your intentions, persons on board and fuel endurance. Maintain present heading and altitude if able. Emergency frequency 121.500 is available.";
   hint=cs+", MAYDAY/PAN-PAN, "+ac+", "+clean(message,120)+". Request immediate assistance.";
   explanation="Declara la emergencia e informa naturaleza, intenciones, personas a bordo y combustible.";
   s.stage="Emergency";
