@@ -48,7 +48,7 @@ function core(message,c,history){
   explanation="Declara la emergencia e informa naturaleza, intenciones, personas a bordo y combustible.";
   s.stage="Emergency";
  } else if(station==="ATIS"){
-  var useArrival=/\\b(destination|arrival|inbound|approach)\\b/i.test(msg);
+  var useArrival=/\b(destination|arrival|inbound|approach)\b/i.test(msg);
   var atisApt=useArrival?arr:dep;
   var atisRunway=useArrival?ar:dr;
   var atisWind=useArrival?"290 at 5 knots":"270 at 6 knots";
