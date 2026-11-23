@@ -497,7 +497,7 @@ function log(tag,text,kind="") {
 function getPreferredAtcVoice() {
   if (!("speechSynthesis" in window)) return null;
   const voices = window.speechSynthesis.getVoices().filter(v => /^en(-|_)/i.test(v.lang));
-  const maleNames = /\\b(Daniel|Aaron|Alex|Fred|Tom|Rishi|Oliver|Evan|Guy|David|Mark|James|Arthur|Lee|Gordon|Nathan|Reed|Ralph)\\b|Microsoft.*(Guy|David|Mark)/i;
+  const maleNames = /\b(Daniel|Aaron|Alex|Fred|Tom|Rishi|Oliver|Evan|Guy|David|Mark|James|Arthur|Lee|Gordon|Nathan|Reed|Ralph)\b|Microsoft.*(Guy|David|Mark)/i;
   const femaleNames = /Samantha|Victoria|Karen|Moira|Tessa|Fiona|Susan|Zira|Jenny|Aria|Michelle|Ava|Allison|Joanna|Kendra|Kimberly|Salli/i;
   return voices.find(v => /^en-US/i.test(v.lang) && maleNames.test(v.name))
     || voices.find(v => maleNames.test(v.name) && !femaleNames.test(v.name))
@@ -711,8 +711,7 @@ $("send").onclick = async () => {
     $("hintExplain").textContent = data.explanation || "Read back the controller's instruction accurately.";
     setAtc(data.atc);
     $("transcript").value = "";
-    $("micStatus").textContent = data.engine === "AEROFLY ATC CORE" ? "ATC · CORE BACKUP" : "ATC · GEMINI";
-    if (data.fallbackReason) log("BACKUP ENGINE", "Gemini unavailable; AEROFLY ATC CORE took over. " + data.fallbackReason);
+    $("micStatus").textContent = "ATC · CORE ONLINE";
   } catch (error) {
     const messageText = error.name === "AbortError" ? "ATC response timed out. Please transmit again." : error.message;
     log("CONNECTION ERROR", messageText);
