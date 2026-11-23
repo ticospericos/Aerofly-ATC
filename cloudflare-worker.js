@@ -48,9 +48,14 @@ function core(message,c,history){
   explanation="Declara la emergencia e informa naturaleza, intenciones, personas a bordo y combustible.";
   s.stage="Emergency";
  } else if(station==="ATIS"){
-  s.atis=s.atis&&s.atis.airport===dep[1]?s.atis:{airport:dep[1],information:"Alpha",wind:"270 at 6 knots",visibility:"10 miles",runway:dr,conditions:"Few clouds"};
-  frequency="126.000";atc=dep[0]+" information "+s.atis.information+". Wind "+s.atis.wind+". Visibility "+s.atis.visibility+". Few clouds. Runway "+dr+" in use. Advise you have information "+s.atis.information+". Simulated ATIS.";
-  hint="Information "+s.atis.information+" received, "+cs+".";explanation="ATIS ficticio, no sincronizado con el clima de Aerofly.";
+  var useArrival=/\\b(destination|arrival|inbound|approach)\\b/i.test(msg);
+  var atisApt=useArrival?arr:dep;
+  var atisRunway=useArrival?ar:dr;
+  var atisWind=useArrival?"290 at 5 knots":"270 at 6 knots";
+  var atisKey=atisApt[1];
+  s.atis=s.atis&&s.atis.airport===atisKey?s.atis:{airport:atisKey,information:"Alpha",wind:atisWind,visibility:"10 miles",runway:atisRunway,conditions:"Few clouds"};
+  frequency="126.000";atc=atisApt[0]+" information "+s.atis.information+". Wind "+s.atis.wind+". Visibility "+s.atis.visibility+". Few clouds. Runway "+atisRunway+" in use. Advise you have information "+s.atis.information+". Simulated ATIS.";
+  hint="Information "+s.atis.information+" received, "+cs+".";explanation="ATIS ficticio para "+atisApt[0]+", no sincronizado con el clima de Aerofly.";
  } else if(station==="Clearance"){
   phase="Preflight";frequency="121.700";s.stage="ClearedToTaxi";
   atc=cs+", cleared to "+arr[0]+" airport, "+(c.flightRules||"IFR")+" departure. Runway "+dr+". Initial altitude "+s.initialAltitude+". Expect further clearance after departure. Squawk "+s.squawk+". Advise when ready to taxi.";
