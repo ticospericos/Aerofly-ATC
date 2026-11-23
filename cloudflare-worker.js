@@ -130,6 +130,8 @@ function core(message,c,history){
  var dr=s.assignedDepartureRunway||"assigned runway",ar=s.assignedArrivalRunway||"assigned runway";
  var station=called||(first?"Clearance":clean(c.station||s.lastStation||"Clearance",24));
  var phase=clean(c.phase||s.phase||"Preflight",24),frequency="",atc="",hint="",explanation="";
+ var clearanceReadbackPending=s.stage==="ClearedToTaxi"&&!s.clearanceReadbackVerified;
+ if(clearanceReadbackPending&&!emergency&&station!=="Clearance"&&station!=="ATIS")station="Clearance";
  if(emergency){
   var radioFailure=/(lost comms|lost communication|lost communications|radio failure|radio out|unable to communicate|unable to transmit|unable to receive|two.?way radio failure|communications failure|comms failure)/i.test(message);
   var emergencySquawk=radioFailure?"7600":"7700";
