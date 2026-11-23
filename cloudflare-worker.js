@@ -376,6 +376,8 @@ function core(message,c,history){
   }
  } else if(station==="Approach"){
   phase="Approach";frequency="124.000";s.stage="Approach";
+  if(!s.simulatedTrafficFleet)s.simulatedTrafficFleet=makeTrafficFleet(s.flightId||"flight",ar);
+  if(!s.simulatedTraffic)s.simulatedTraffic=s.simulatedTrafficFleet[0];
   if(s.approachType==="visual"&&/^VFR/.test(s.approachVectorStage||"")){
    if(/\b(final|runway in sight|turning final|on final)\b/i.test(msg)){
     s.approachVectorStage="Final";
