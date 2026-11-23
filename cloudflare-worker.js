@@ -89,6 +89,7 @@ function core(message,c,history){
  var called="";
  if(/\b(go.?around|going around|missed approach)\b/i.test(msg)&&/approach|landing|go.?around/i.test(String(s.stage||c.phase||"")))called="Tower";
  var calls=[["Clearance",/\b(clearance delivery|clearance)\b/i],["Ground",/\bground\b/i],["Tower",/\btower\b/i],["Departure",/\bdeparture\b/i],["Center",/\b(center)\b/i],["Approach",/\bapproach\b/i],["ATIS",/\b(atis|information|weather report|request weather)\b/i],["Unicom",/\b(unicom|traffic)\b/i]];
+ if(!called&&["Taxi","HoldingShort"].includes(s.stage)&&/\b(ready for departure|ready for takeoff|request takeoff|ready for take.?off)\b/i.test(msg))called="Tower";
  if(!called){for(var ci=0;ci<calls.length;ci++){if(calls[ci][1].test(msg)){called=calls[ci][0];break;}}}
  var stage=s.stage||"Preflight";
  s.flightId=clean(c.flightId||s.flightId,100);
