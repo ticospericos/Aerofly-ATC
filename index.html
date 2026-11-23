@@ -554,6 +554,21 @@ function log(tag,text,kind="") {
   $("log").prepend(entry);
 }
 
+function selectNaturalAtcVoice() {
+  if (!("speechSynthesis" in window)) return null;
+  const voices = window.speechSynthesis.getVoices() || [];
+  const english = voices.filter(v => /^en(-|_)?US/i.test(v.lang) || /^en/i.test(v.lang));
+  const preferred = [
+    /ava/i, /samantha/i, /zoe/i, /allison/i, /jenny/i,
+    /aria/i, /michelle/i, /google us english/i, /natural.*female/i
+  ];
+  for (const pattern of preferred) {
+    const match = english.find(v => pattern.test(v.name));
+    if (match) return match;
+  }
+  return english.find(v => /female|woman/i.test(v.name)) || null;
+}
+
 function speak(text) {
   if (!("speechSynthesis" in window)) {
     log("VOICE","Speech playback is not supported by this browser.");
@@ -561,11 +576,12 @@ function speak(text) {
   }
 
   window.speechSynthesis.cancel();
-
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = "en-US";
-  utterance.rate = 0.92;
-
+  utterance.rate = 0.94;
+  utterance.pitch = 1.0;
+  const naturalVoice = selectNaturalAtcVoice();
+  if (naturalVoice) utterance.voice = naturalVoice;
   window.speechSynthesis.speak(utterance);
 }
 
