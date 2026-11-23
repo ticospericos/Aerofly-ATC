@@ -558,7 +558,7 @@ function saveSession() {
       callsign:$("callsign").value,aircraft:$("aircraft").value,
       origin:origin.value,destination:destination.value,flightRules:$("flightType").value,
       station,phase,currentFrequency,flightState,conversationHistory:conversationHistory.slice(-8),
-      sessionLog:sessionLog.slice(0,80),atcText:$("atcText").textContent,
+      sessionLog:sessionLog.slice(0,80),planRoute:$("planRoute").value,atcText:$("atcText").textContent,
       hintText:$("hintText").textContent,hintExplain:$("hintExplain").textContent
     }));
   } catch(error) {
@@ -576,6 +576,7 @@ function restoreSession() {
     if(["IFR","VFR"].includes(saved.flightRules)) $("flightType").value=saved.flightRules;
     if(saved.callsign) $("callsign").value=saved.callsign;
     flightId=saved.flightId;activeSession=true;
+    if($("planRoute")) $("planRoute").value=saved.planRoute||"";
     station=saved.station||"Clearance";phase=saved.phase||"Preflight";
     currentFrequency=saved.currentFrequency||"";
     flightState=saved.flightState&&typeof saved.flightState==="object"?saved.flightState:{};
