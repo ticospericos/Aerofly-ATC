@@ -134,14 +134,16 @@ function core(message,c,history){
 export default {async fetch(request,env){
  var url=new URL(request.url),origin=request.headers.get("Origin")||"";
  if(request.method==="OPTIONS")return new Response(null,{headers:headers()});
- if(request.method==="GET"&&url.pathname==="/health")return out({ok:true,service:"AEROFLY-ATC Brain",engine:"AEROFLY ATC CORE",mode:"CORE ONLY",neuralVoice:"Grok TTS via Workers AI binding"});
+ if(request.method==="GET"&&url.pathname==="/health")return out({ok:true,service:"AEROFLY-ATC Brain",engine:"AEROFLY ATC CORE",mode:"CORE ONLY",neuralVoice:env.AI?"Grok TTS ready":"AI binding required"});
  if(request.method==="POST"&&url.pathname==="/tts"){
   if(origin&&origin!==ALLOWED_ORIGIN)return out({error:"Origin not allowed"},403);
   try{
    if(!env.AI||typeof env.AI.run!=="function")return out({error:"Neural voice is not configured. Add the Workers AI binding named AI."},503);
    var ttsBody=await request.json(),ttsText=clean(ttsBody.text,1800);
    if(!ttsText)return out({error:"Text is required"},400);
-   var generated=await env.AI.run("xai/grok-tts",{text:ttsText,voice_id:"leo",language:"en",output_format:{codec:"mp3",sample_rate:24000,bit_rate:128000}});
+   var trafficVoices=["ara","rex","sal","eve"],voiceIndex=Array.from(ttsText).reduce((sum,ch)=>sum+ch.charCodeAt(0),0)%trafficVoices.length;
+   var selectedVoice=ttsBody.traffic===true?trafficVoices[voiceIndex]:"leo";
+   var generated=await env.AI.run("xai/grok-tts",{text:ttsText,voice_id:selectedVoice,language:"en",output_format:{codec:"mp3",sample_rate:24000,bit_rate:128000}});
    var audioUrl=generated&&((generated.audio)||(generated.result&&generated.result.audio));
    if(!audioUrl)return out({error:"Neural voice returned no audio"},502);
    var audioResponse=await fetch(audioUrl);
