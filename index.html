@@ -62,8 +62,8 @@ const SESSION_KEY="aerofly-atc-local-session-v4";
 function airport(code){return airports.find(a=>a[1]===code)||[code,code,[]];}
 function activeAirportCode(){return ["Approach","Landing","Arrival Ground","Parking"].includes(phase)?destination.value:origin.value;}
 function radioAirportName(code){return airport(code)[0].replace(/ (Municipal|Regional|International|County|Airport|Airfield)$/i,"");}
-const majorTowered=new Set(["KSFO","KSJC","KOAK","KSMF","KSAC","KMHR","KSCK","KMOD","KNUQ"]);
-const towered=new Set(["KMRY","KSNS","KRHV","KLVK","KSQL","KHWD","KCCR","KAPC","KSTS","KSFO","KSJC","KOAK","KSMF","KSAC","KMHR","KSCK","KMOD","KNUQ"]);
+const majorTowered=new Set(["KSFO","KSJC","KOAK","KSMF","KSAC","KMHR","KSCK","KMOD","KNUQ","KSUU"]);
+const towered=new Set(["KMRY","KSNS","KRHV","KLVK","KSQL","KHWD","KCCR","KAPC","KSTS","KSFO","KSJC","KOAK","KSMF","KSAC","KMHR","KSCK","KMOD","KNUQ","KSUU"]);
 const military=new Set(["KSUU"]);
 const frequencyProfiles={
 KSNS:{ctaf:"119.525",tower:"119.525",ground:"121.7",approach:"133.0",departure:"133.0",atis:"124.85",unicom:"123.0"},
