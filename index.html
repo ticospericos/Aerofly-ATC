@@ -183,7 +183,18 @@ else if(/go.?around|missed approach/.test(m)){reply=arr[0]+" Tower, "+c+", go-ar
 else if(/land|landing|runway in sight/.test(m)){const wx=flightState.weather||{wind:270,speed:6};if(runwayOccupiedNow()){reply=arr[0]+" Tower, "+c+", continue approach runway "+arw+". Traffic has not vacated the runway. Be prepared to go around.";next="Tower";phase="Landing";}else{reply=arr[0]+" Tower, "+c+", runway "+arw+", cleared to land. Wind "+String(wx.wind).padStart(3,"0")+" at "+wx.speed+(wx.gust?", gusting "+wx.gust:"")+" knots. Remain on "+sayFrequency("Tower",destination.value)+".";next="Tower";phase="Landing";}}
 else if(/vacated|clear of runway|off the runway/.test(m)){reply=arr[0]+" Ground, "+c+", taxi to parking via Alpha. Remain on "+sayFrequency("Ground",destination.value)+".";next="Ground";phase="Arrival Ground";}
 else if(/parked|parking|gate/.test(m)){reply=arr[0]+" Ground, "+c+", parking acknowledged. "+flightDebrief()+" Remain on "+sayFrequency("Ground",destination.value)+".";next="Ground";phase="Parking";}
-else{const style=flightState.controllerStyle||"standard",phrase=style==="concise"?"Say again, state request and position.":style==="calm"?"Roger, take your time. Say again with your request, position and intentions.":"Roger. Say again with your request, position and intentions.";reply=controllerName(station)+", "+c+", "+phrase+" Current frequency "+sayFrequency(station,activeAirportCode())+".";}
+else{
+ const style=flightState.controllerStyle||"standard";
+ let phrase="";
+ if(station==="Ground")phrase="Say again your taxi request. Are you requesting pushback, taxi clearance, or progressive taxi instructions?";
+ else if(station==="Tower")phrase="Say again your runway and intentions. Are you holding short, ready for departure, or reporting final?";
+ else if(station==="Clearance"||station==="Delivery")phrase="Say again your clearance request. Are you requesting IFR or VFR clearance, or ready to copy?";
+ else if(station==="Approach")phrase="Say again your position and approach request. Are you inbound, requesting vectors, or established on the approach?";
+ else if(station==="Departure"||station==="Center")phrase="Say again your position, altitude and request.";
+ else phrase=style==="calm"?"Roger, take your time. Say again your request and intentions.":"Say again your request and intentions.";
+ if(style==="calm")phrase="Roger, take your time. "+phrase;
+ reply=controllerName(station)+", "+c+", "+phrase+" Current frequency "+sayFrequency(station,activeAirportCode())+".";
+}
 reply=applyControllerStyle(reply);if(next!==station&&/contact .* (ground|tower|departure|approach|center|clearance)|contact .* on/.test(reply)){flightState.metrics.handoffs=(flightState.metrics.handoffs||0)+1;flightState.lastHandoff={from:station,to:next,airport:activeAirportCode(),frequency:frequencyFor(next,activeAirportCode()).value,issuedAt:Date.now(),acknowledged:false};log("HANDOFF",station+" → "+next+" · "+flightState.lastHandoff.frequency+" MHz");}station=next;updateFrequencyDisplay();worldUpdatePanel();$("phaseStatus").textContent=phase.toUpperCase();$("phaseName").textContent=phase.toUpperCase();$("phaseDescription").textContent="Local simulation · "+controllerName(station);updateMonitor();updateHint();saveSession();return reply;
 }
 
@@ -315,6 +326,9 @@ function normalizeAviationTranscript(text){
  ];
  
  for(const [re,v] of fixes)t=t.replace(re,v);
+ // Correct common Salinas ASR variants when followed by an ATC position.
+ if(activeAirportCode()==="KSNS")t=t.replace(/\b(?:celinas|selinas|salena|salina's|salenas)\s+(clearance(?: delivery)?|ground|tower|approach|departure|center|traffic)\b/gi,"Salinas $1");
+
  const phraseFixes=[
  [/\\b(?:rate|raid|ray) to taxi\\b/gi,"ready to taxi"],
  [/\\bready taxi\\b/gi,"ready to taxi"],
