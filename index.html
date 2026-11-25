@@ -146,7 +146,7 @@ function localConversationalReply(message,c,local){
  if(/\b(?:good morning|good afternoon|good evening|hello|hi there|good day)\b/.test(m)&&!flightState.lastHandoff?.acknowledged)return ctl+", "+c+", "+p.greet;
  if(/\b(?:thank you|thanks|thanks a lot|appreciate it|much appreciated)\b/.test(m))return ctl+", "+c+", "+p.thanks;
  if(/\b(?:can i ask a question|may i ask a question|i have a question)\b/.test(m))return ctl+", "+c+", "+p.question;
- if(/\b(?:speak slower|say that slower|slower please|you're speaking too fast|you are speaking too fast)\b/.test(m))return ctl+", "+c+", roger. I'll keep the instructions short and speak more slowly.";
+ if(/\b(?:speak slower|say that slower|slower please|you're speaking too fast|you are speaking too fast)\b/.test(m)){flightState.controllerStyle="calm";saveSession();return ctl+", "+c+", roger. I'll keep the instructions short and speak more slowly.";}
  if(/\b(?:unfamiliar with (?:this )?airport|first time here|not familiar with (?:this )?airport|new to this airport)\b/.test(m))return ctl+", "+c+", roger. No problem. Advise when ready and request progressive taxi instructions. Check the airport diagram and hold short of all runways unless specifically cleared.";
  if(/\b(?:request progressive taxi|progressive taxi instructions|guide me taxi)\b/.test(m))return name+" Ground, "+c+", roger. Progressive taxi requested. Confirm your present position and we will provide the next taxi segment. Hold position until instructed.";
  if(/\b(?:what does hold short mean|meaning of hold short|explain hold short)\b/.test(m))return ctl+", "+c+", hold short means stop before the runway holding position. Do not enter or cross the runway until specifically instructed.";
