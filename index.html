@@ -89,7 +89,7 @@ KCCR:{ctaf:"119.7",tower:"119.7",towerAlt:"123.9",ground:"121.9",clearance:"118.
 };
 function frequencyFor(type,code=activeAirportCode()){const p=frequencyProfiles[code]||{},t=String(type||station).toLowerCase();let f=p[t]||((t==="delivery")?p.clearance:null)||((t==="landing")?p.tower:null)||((t==="arrival ground")?p.ground:null);if(t==="center")f=p.center||"127.8";if(!f&&["ctaf","traffic","unicom"].includes(t))f=p.ctaf||p.unicom||"122.9";if(!f&&["approach","departure"].includes(t))f=p[t]||"133.0";if(!f&&["tower","ground","clearance","delivery"].includes(t))f=({tower:"118.0",ground:"121.7",clearance:"127.0",delivery:"127.0"})[t];return {value:f,simulated:!p[t]&&!((t==="delivery")&&p.clearance)&&!((t==="landing")&&p.tower)&&!((t==="arrival ground")&&p.ground)};}
 function sayFrequency(type,code=activeAirportCode()){const f=frequencyFor(type,code);return "frequency "+f.value.replace("."," point ")+" megahertz";}
-function handoff(controller,type,code=activeAirportCode()){return "Contact "+controller+" on "+sayFrequency(type,code)+".";}
+function handoff(controller,type,code=activeAirportCode()){return "Contact "+controller+" on "+sayFrequency(type,code)+". Good day.";}
 function updateFrequencyDisplay(){const f=frequencyFor(station,activeAirportCode());currentFrequency=f.value+" MHz";const el=$("frequencyLabel");if(el)el.textContent="TUNE "+f.value+" MHz"+(f.simulated?" · SIMULATED / UNVERIFIED":" · PUBLISHED REFERENCE");}
 function facilityProfile(code){return {towered:towered.has(code),major:majorTowered.has(code),military:military.has(code),name:radioAirportName(code)};}
 function controllerName(type=station){const code=activeAirportCode(),p=facilityProfile(code),a=p.name;if(type==="Center"||type==="Cruise")return "Oakland Center";if(type==="Approach"||type==="Departure")return (p.military||code==="KCCR"?"Travis ":"NorCal ")+type;if(type==="CTAF"||type==="Traffic")return a+" CTAF / Traffic Advisory";if(type==="UNICOM")return a+" UNICOM";if(type==="Ground"||type==="Arrival Ground")return p.towered?(p.military?"Travis Ground":a+" Ground"):a+" CTAF";if(type==="Tower"||type==="Landing")return p.towered?(p.military?"Travis Tower":a+" Tower"):a+" CTAF / Traffic Advisory";if(type==="Delivery")return a+" Clearance Delivery";if(type==="Clearance")return p.towered?a+" Clearance Delivery":"Remote IFR Clearance Delivery";return a+" Traffic Advisory";}
@@ -131,7 +131,7 @@ function applyControllerStyle(message){const style=flightState.controllerStyle||
 function localAtcReply(message){
 const m=String(message||"").toLowerCase(),c=$("callsign").value.trim()||"November Niner Charlie Bravo",dep=airport(origin.value),arr=airport(destination.value),local=airport(activeAirportCode()),rw=flightState.departureRunway||dep[2][0]||"31",arw=flightState.arrivalRunway||arr[2][0]||"06";let reply="",next=station;const position=worldPositionCall(m);if(position){worldLastPosition=position;flightState.lastReportedPosition=position;log("POSITION",c+" · "+position);worldWorkloadUpdate();worldUpdatePanel();}const emergencyReply=worldEmergency(m,c,local);if(emergencyReply)return emergencyReply;if(/checklist|preflight item|next item/.test(m)){if(/checked|check complete|done/.test(m)){return c+", roger. "+worldChecklistVoice("advance");}if(/repeat/.test(m))return c+", "+worldChecklistVoice("repeat");if(/next item/.test(m))return c+", confirm the current checklist item before proceeding.";return c+", "+worldChecklistVoice("current");}if(/say again|repeat that|say again please/.test(m))return controllerName(station)+", "+String($("atcText").textContent||"").replace(/^.*?,s*/,"")+".";if(/checked|check complete|checklist complete/.test(m)&&worldChecklist.length){return c+", roger. "+worldChecklistVoice();}if(/use standard phraseology/.test(String($("atcText").textContent||"").toLowerCase()))return controllerName(station)+", "+worldCorrection();if(Date.now()<worldRadioInterruptionUntil){return controllerName(station)+", blocked transmission. Say again."; }const prior=String($("atcText").textContent||"").toLowerCase(),requiredRunway=(prior.match(/runway\s+(\d{1,2}[lrc]?)/i)||[])[1];
 const priorSquawk=(prior.match(/squawk\s+([0-9 ]{4,8})/i)||[])[1],priorAltitude=(prior.match(/(?:maintain|climb and maintain|descend and maintain)\s+([a-z0-9 ]+?)\s+(?:feet|ft)/i)||[])[1],priorFrequency=(prior.match(/frequency\s+([0-9]+(?:\.[0-9]+)?)/i)||[])[1];const readbackIntent=/read back|readback|holding short|hold short|line up|takeoff|landing|runway|squawk|maintain|climb|descend|frequency|contact/.test(m);let readbackError="";if(readbackIntent&&requiredRunway&&/hold short runway|line up and wait|cleared for takeoff|cleared to land/.test(prior)&&!spokenDigits(m).includes(spokenDigits(requiredRunway)))readbackError="runway "+requiredRunway;if(readbackIntent&&!readbackError&&priorSquawk&&!spokenDigits(m).includes(spokenDigits(priorSquawk)))readbackError="squawk "+spokenDigits(priorSquawk).split("").join(" ");if(readbackIntent&&!readbackError&&priorAltitude){const expected=spokenDigits(priorAltitude),actual=spokenDigits(m);if(expected&&!actual.includes(expected))readbackError="altitude "+priorAltitude.trim()+" feet";}if(readbackIntent&&!readbackError&&priorFrequency&&/frequency|contact/.test(m)&&!spokenDigits(m).includes(spokenDigits(priorFrequency)))readbackError="frequency "+priorFrequency;if(readbackError){reply=controllerName(station)+", negative. "+readbackError+". "+worldCorrection();next=station;}
-else if(flightState.lastHandoff&&!flightState.lastHandoff.acknowledged&&/checking in|with you|radar contact|contacting|good morning|good afternoon/.test(m)){const h=flightState.lastHandoff;h.acknowledged=true;h.acknowledgedAt=Date.now();const altitude=(m.match(/(?:at|maintaining|level at)\s+([a-z0-9 ]+?)(?:\s+feet|\s+ft|$)/)||[])[1];reply=controllerName(station)+", "+c+", radar contact. "+(altitude?"Maintaining "+altitude+" feet, roger. ":"Identified. ")+"Continue as cleared. "+(station==="Ground"?"Advise ready to taxi.":station==="Tower"?"Report holding short.":station==="Approach"?"Report established on the approach.":"");next=station;}
+else if(flightState.lastHandoff&&!flightState.lastHandoff.acknowledged&&/checking in|with you|radar contact|contacting|good morning|good afternoon|switching frequency|changing frequency|switching to (?:oakland )?(?:center|approach|departure|ground|tower)|good day|goodbye/.test(m)){const h=flightState.lastHandoff;h.acknowledged=true;h.acknowledgedAt=Date.now();const altitude=(m.match(/(?:at|maintaining|level at)\s+([a-z0-9 ]+?)(?:\s+feet|\s+ft|$)/)||[])[1];reply=controllerName(station)+", "+c+", radar contact. "+(altitude?"Maintaining "+altitude+" feet, roger. ":"Identified. ")+"Continue as cleared. "+(station==="Ground"?"Advise ready to taxi.":station==="Tower"?"Report holding short.":station==="Approach"?"Report established on the approach.":"");next=station;}
 else if(/request (?:atis|weather|wind|altimeter)|information [a-z]|say weather/.test(m)){reply=controllerName(station)+", "+weatherAtis()+" Altimeter "+String(flightState.weather?.altimeter||"29.92").replace("."," point ")+". Remain on "+sayFrequency(station,activeAirportCode())+".";next=station;}
 else if(/radio failure|lost communications|radio is dead|unable to transmit/.test(m)){flightState.radioFailure=true;reply=c+", "+controllerName(station)+", radio failure acknowledged. Squawk seven six zero zero. Maintain last assigned altitude and follow lost communications procedures. If able, transmit intentions on guard one two one point five. Advise intentions.";}else if(/minimum fuel|low fuel|fuel emergency|fuel is low/.test(m)){flightState.minimumFuel=true;reply=c+", "+controllerName(station)+", minimum fuel acknowledged. State endurance remaining and souls on board. Advise immediately if you require priority or declare an emergency. "+handoff("Approach","Approach",activeAirportCode());}else if(/windshear|microburst/.test(m)){flightState.weatherEvent="windshear";reply=c+", "+controllerName(station)+", windshear alert reported near the runway. Go around if safety requires. Advise intentions and request vectors. Advise intentions.";}else if(/mayday|pan pan|emergency|engine (fail|fire)|smoke|bird strike|medical|hydraulic|electrical|pressurization|pressurisation|decompression/.test(m)){flightState.emergency=true;flightState.squawk="7700";const urgency=/pan pan/.test(m)?"PAN PAN":"MAYDAY";reply=c+", "+controllerName(station)+", "+urgency+" acknowledged. Squawk seven seven zero zero. State the nature of emergency, persons on board, fuel endurance and intentions. Airport emergency services alerted at "+local[0]+". Remain on "+sayFrequency(station,activeAirportCode())+".";}
 else if(station==="Delivery"&&/request.*clearance|clearance.*request|ready to copy|ifr clearance|vfr clearance|submit.*flight plan/.test(m)){reply=dep[0]+" Clearance Delivery, "+c+", flight plan received. Clearance and readback will be handled by this position. Remain on "+sayFrequency("Delivery",origin.value)+".";next="Clearance";}
@@ -285,7 +285,60 @@ function normalizeAviationTranscript(text){
  [/\\bswitching frequencies\\b/gi,"switching frequency"],
  [/\\bnegative ghost rider\\b/gi,"negative"]
  ];
+ 
  for(const [re,v] of fixes)t=t.replace(re,v);
+ const phraseFixes=[
+ [/\\b(?:rate|raid|ray) to taxi\\b/gi,"ready to taxi"],
+ [/\\bready taxi\\b/gi,"ready to taxi"],
+ [/\\bready for taxi\\b/gi,"ready to taxi"],
+ [/\\brequest taxi clearance\\b/gi,"request taxi"],
+ [/\\brequest to taxi\\b/gi,"request taxi"],
+ [/\\brequest to push back\\b/gi,"request pushback"],
+ [/\\brequest engine start\\b/gi,"request start"],
+ [/\\bstart up approved\\b/gi,"start approved"],
+ [/\\bline up and wait\\b/gi,"line up and wait"],
+ [/\\bhold short of runway\\b/gi,"hold short runway"],
+ [/\\bcleared for landing\\b/gi,"cleared to land"],
+ [/\\bclear to land\\b/gi,"cleared to land"],
+ [/\\bclear for takeoff\\b/gi,"cleared for takeoff"],
+ [/\\bready for take off\\b/gi,"ready for takeoff"],
+ [/\\bcontacting (?:oakland )?center\\b/gi,"checking in with Center"],
+ [/\\bchecking in with (?:oakland )?center\\b/gi,"checking in with Oakland Center"],
+ [/\\bchanging frequency\\b/gi,"switching frequency"],
+ [/\\bchange frequency\\b/gi,"switching frequency"],
+ [/\\bswitching over\\b/gi,"switching frequency"],
+ [/\\bgoing over to (ground|tower|approach|departure|center)\\b/gi,"switching to $1"],
+ [/\\b(?:good bye|goodby|goodbye)\\b/gi,"good day"],
+ [/\\bthank you (?:and )?good day\\b/gi,"thanks, good day"],
+ [/\\bthanks (?:and )?goodbye\\b/gi,"thanks, good day"],
+ [/\\broger wilco\\b/gi,"roger, wilco"],
+ [/\\bwilco\\b/gi,"wilco"],
+ [/\\baffirmative\\b/gi,"affirm"],
+ [/\\bnegative\\b/gi,"negative"],
+ [/\\bstand by\\b/gi,"standby"],
+ [/\\bread back\\b/gi,"readback"],
+ [/\\btransponder\\b/gi,"transponder"],
+ [/\\btraffic alert\\b/gi,"traffic advisory"],
+ [/\\bairport in sight\\b/gi,"airport in sight"],
+ [/\\bvisual approach\\b/gi,"visual approach"],
+ [/\\brequest vectors to final\\b/gi,"request vectors"],
+ [/\\bflight level\\s+(\\w+)\\b/gi,"flight level $1"],
+ [/\\b(?:one thousand)\\b/gi,"one thousand"],
+ [/\\b(?:two thousand)\\b/gi,"two thousand"],
+ [/\\b(?:three thousand)\\b/gi,"three thousand"],
+ [/\\b(?:four thousand)\\b/gi,"four thousand"],
+ [/\\b(?:five thousand)\\b/gi,"five thousand"],
+ [/\\b(?:six thousand)\\b/gi,"six thousand"],
+ [/\\b(?:seven thousand)\\b/gi,"seven thousand"],
+ [/\\b(?:eight thousand)\\b/gi,"eight thousand"],
+ [/\\b(?:nine thousand)\\b/gi,"nine thousand"]
+ ];
+ for(const [re,v] of phraseFixes)t=t.replace(re,v);
+ // Phonetic alphabet corrections are deliberately scoped to a callsign after "November".
+ t=t.replace(/\\bNovember\\s+(?:Niner|Nine|Nine-er)\\s+(?:Shirley|Surely|Charley|Charlie)\\s+(?:Bravo|Brava)\\b/gi,"November Niner Charlie Bravo");
+ t=t.replace(/\\bNovember\\s+(?:Niner|Nine|Nine-er)\\s+(?:Shirley|Surely|Charley|Charlie)\\b/gi,"November Niner Charlie");
+ t=t.replace(/\\bNovember\\s+(?:Nine|Nine-er)\\b/gi,"November Niner");
+ return t;
  // Correct phonetic-alphabet words only in a callsign-like sequence after November.
  t=t.replace(/\\bNovember\\s+(?:Niner|Nine|Nine-er)\\s+(?:Shirley|Surely|Charley)\\s+Bravo\\b/gi,"November Niner Charlie Bravo");
  t=t.replace(/\\bNovember\\s+(?:Niner|Nine)\\s+(?:Shirley|Surely|Charley)\\b/gi,"November Niner Charlie");
